@@ -1,0 +1,8 @@
+{
+    "ServiceEnabled": true,
+    "SessionTimeout": 300,
+    "Status": {
+        "Health": "OK",
+        "State": "Enabled"
+    }
+}

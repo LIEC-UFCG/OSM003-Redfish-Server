@@ -1,0 +1,50 @@
+{
+    "1": {
+        "Id": "1",
+        "UserName": "admin",
+        "RoleId": "Administrator",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$81fMztuWeBYbojaoQEVYL.1qS28PC1K6DOuWGxaPCZ1ZMwak0Sby6",
+        "_failed_attempts": 0,
+        "_last_failed_attempt": 0,
+        "_locked_until": 0
+    },
+    "2": {
+        "Id": "2",
+        "UserName": "user",
+        "RoleId": "Operator",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$5yrDLDG4U/a0PEX./WOqsu5a4eV.g.2QPiOLzK4LUUlkW61IUmWUm"
+    },
+    "3": {
+        "Id": "3",
+        "UserName": "teste",
+        "RoleId": "ReadOnly",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$kke/BQGQKGW1V6.ToyeBAOCKWwg/G1kVMfCelSvqTQF1v7u6j8fSa"
+    },
+    "4": {
+        "Id": "4",
+        "UserName": "dgl",
+        "RoleId": "Operator",
+        "Enabled": true,
+        "Locked": true,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$vaEcdkSuWQJnr6Vn8XwkRuXf0hKArHFdGHW3vFk5vxi7Qwd/epKYO"
+    },
+    "5": {
+        "Id": "5",
+        "UserName": "Arq",
+        "RoleId": "Administrator",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$RCW2v9B.QGHKWJfZnGaJJe79RjJPL0p2nu6z/EN9DCxbhquibpE0W"
+    }
+}

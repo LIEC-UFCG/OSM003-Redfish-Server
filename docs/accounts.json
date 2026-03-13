@@ -1,0 +1,20 @@
+{
+    "1": {
+        "Id": "1",
+        "UserName": "admin",
+        "RoleId": "Administrator",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$5e/HDSm9znP.s8wQkUTFBuKfntkkwlOZ8ZvGJpq.V9ajPIMX4Bo8y"
+    },
+    "2": {
+        "Id": "2",
+        "UserName": "user",
+        "RoleId": "Operator",
+        "Enabled": true,
+        "Locked": false,
+        "PasswordChangeRequired": false,
+        "Password": "$2b$12$Z8ukIcMTIH2iHEXMiXRj0u73tPJYQ/qnrixI.NuhTpAF6MXrGgTZS"
+    }
+}

@@ -1,0 +1,5 @@
+{
+    "DeliveryRetryAttempts": 5,
+    "DeliveryRetryIntervalSeconds": 10,
+    "ServiceEnabled": true
+}

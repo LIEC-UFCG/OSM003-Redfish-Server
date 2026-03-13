@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Almeida"
+  given-names: "Douglas de Souza"
+- family-names: "Barros"
+  given-names: "P. R."
+- family-names: "Acioli Júnior"
+  given-names: "G."
+- family-names: "Euzébio"
+  given-names: "T. A. M."
+title: "Implementation Guide for Secure RESTful Asset Management APIs under IEC 62443-4-2: A Redfish Case Study"
+version: 1.0.0
+date-released: 2026-03-13
+url: "https://github.com/LIEC-UFCG/OSM003-Redfish-Server.git"

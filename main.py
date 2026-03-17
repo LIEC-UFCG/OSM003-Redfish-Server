@@ -57,6 +57,7 @@ app = Flask(__name__)
 Talisman(app)
 
 
+
 # Função para obter o token de autenticação do cabeçalho da requisição
 # Caso o token não esteja presente, utiliza o endereço remoto do cliente
 def get_token():
@@ -82,7 +83,8 @@ limiter = Limiter(
 )
 
 RATE_LIMIT = "1 per second"
-ENABLE_RATE_LIMIT = True
+# Controla o rate limit por variavel de ambiente: 1/true/yes/on habilita.
+ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").strip().lower() in ("1", "true", "yes", "on")
 
 def conditional_limit(limit):
     def decorator(func):
@@ -628,10 +630,10 @@ for func in storage_functions: # Itera sobre as funções de armazenamento
     # O método HTTP é definido como GET
     route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
     # Encadeia manualmente os decoradores
-    decorated_func = limiter.limit("1 per second")(
-                        requires_privilege("SimpleStorage")(
-                            requires_authentication(func)
-                        ))
+    protected_func = requires_privilege("SimpleStorage")(
+                        requires_authentication(func)
+                    )
+    decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
     app.route(route, methods=['GET'])(decorated_func)
 
 # Rota para obter informações do sistema operacional

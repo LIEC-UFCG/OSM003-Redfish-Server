@@ -42,6 +42,8 @@ from flask_limiter.errors import RateLimitExceeded
 from flask import jsonify
 import logging
 
+RATE_LIMIT_STORAGE_URI = os.getenv("RATE_LIMIT_STORAGE_URI")
+
 HOME = os.path.expanduser("~")
 LOG_DIR = os.path.join(HOME, "redfishpi_logs")
 if not os.path.exists(LOG_DIR):
@@ -68,11 +70,15 @@ def get_token():
     """
     return request.headers.get("X-Auth-Token") or get_remote_address()
 
-# Configuração do Flask-Limiter para limitar o número de requisições por cliente
+
+
+
+# configuração do limiter
 limiter = Limiter(
-    key_func=get_token, # Função para identificar o cliente
-    app=app,            # Aplicação Flask
-    default_limits=[]   # Limites padrão (vazio por enquanto)
+    key_func=get_token,
+    app=app,
+    default_limits=[],
+    storage_uri=RATE_LIMIT_STORAGE_URI if RATE_LIMIT_STORAGE_URI else "memory://"
 )
 
 RATE_LIMIT = "1 per second"
@@ -1530,9 +1536,10 @@ if __name__ == '__main__':
     # Inicia o servidor Flask em um processo separado 
 
     ip = obter_ip_local() # Obtém o IP local
-    if not certificados_estao_atualizados(ip):  # Verifica se os certificados estão atualizados
-        gerar_certificados(ip)   
-        registrar_certificado_no_sistema()
+    if not certificados_estao_atualizados(ip):
+        gerar_certificados(ip)
+        if os.getenv("REGISTER_CERT_IN_SYSTEM", "false").lower() == "true":
+         registrar_certificado_no_sistema()
 
     ssdp_control.start_ssdp()
 

@@ -29,9 +29,12 @@ def ip_esta_no_certificado(cert_file, ip_esperado):
     Returns:
         bool: True se o IP estiver no certificado, False caso contrário.
     """
+    if not os.path.exists(cert_file):
+        return False
     try:
         resultado = subprocess.check_output(
-            ["openssl", "x509", "-in", cert_file, "-noout", "-text"]
+            ["openssl", "x509", "-in", cert_file, "-noout", "-text"],
+            stderr=subprocess.DEVNULL
         ).decode()
         return f"IP Address:{ip_esperado}" in resultado
     except Exception:

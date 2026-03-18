@@ -2,19 +2,7 @@ import docker
 from flask import jsonify, request, make_response
 from datetime import datetime
 
-def _get_docker_client():
-    """
-    Cria e valida um cliente Docker sob demanda.
-
-    Returns:
-        tuple: (client, None) em caso de sucesso, ou (None, mensagem_erro).
-    """
-    try:
-        client = docker.from_env()
-        client.ping()
-        return client, None
-    except Exception as e:
-        return None, str(e)
+client = docker.from_env()  # Conecta-se ao daemon Docker
 
 def get_containers(system_id):
     """
@@ -26,13 +14,6 @@ def get_containers(system_id):
     Returns:
         flask.Response: Resposta JSON com a coleção de containers no formato Redfish.
     """
-    client, error = _get_docker_client()
-    if not client:
-        return make_response({
-            "error": "Docker daemon unavailable or permission denied.",
-            "details": error
-        }, 503)
-
     containers = client.containers.list(all=True)  # Obtém todos os containers, incluindo os parados
 
     container_list = []
@@ -68,13 +49,6 @@ def get_container(system_id, container_id):
         tuple: (response, status_code) em caso de erro.
     """
     try:
-        client, error = _get_docker_client()
-        if not client:
-            return make_response({
-                "error": "Docker daemon unavailable or permission denied.",
-                "details": error
-            }, 503)
-
         container = client.containers.get(container_id)
 
         # Processa volumes do contêiner (mesmo que não existam)
@@ -168,13 +142,6 @@ def start_container(container_id):
         flask.Response: Mensagem de sucesso ou erro.
     """
     try:
-        client, error = _get_docker_client()
-        if not client:
-            return make_response({
-                "error": "Docker daemon unavailable or permission denied.",
-                "details": error
-            }, 503)
-
         container = client.containers.get(container_id)
         container.start()
         return make_response({"message": "Container started successfully"}, 200)
@@ -192,13 +159,6 @@ def stop_container(container_id):
         flask.Response: Mensagem de sucesso ou erro.
     """
     try:
-        client, error = _get_docker_client()
-        if not client:
-            return make_response({
-                "error": "Docker daemon unavailable or permission denied.",
-                "details": error
-            }, 503)
-
         container = client.containers.get(container_id)
         container.stop()
         return make_response({"message": "Container stopped successfully"}, 200)
@@ -216,13 +176,6 @@ def reset_container(container_id):
         flask.Response: Mensagem de sucesso ou erro.
     """
     try:
-        client, error = _get_docker_client()
-        if not client:
-            return make_response({
-                "error": "Docker daemon unavailable or permission denied.",
-                "details": error
-            }, 503)
-
         container = client.containers.get(container_id)
         container.restart()
         return make_response({"message": "Container reset successfully"}, 200)

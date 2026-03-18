@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/LIEC-UFCG/OSM003-Redfish-Server.git}"
-REPO_DIR="${REPO_DIR:-$HOME/OSM003-Redfish-Server}"
+PROJECT_DIR="$(pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-.venv}"
 ENABLE_DOCKER_GROUP="${ENABLE_DOCKER_GROUP:-0}"
@@ -22,20 +21,15 @@ require_command() {
 
 log "Updating system packages"
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip
+sudo apt install -y python3 python3-venv python3-pip
 
-require_command git
 require_command "$PYTHON_BIN"
 
-if [ ! -d "$REPO_DIR/.git" ]; then
-    log "Cloning repository into $REPO_DIR"
-    git clone "$REPO_URL" "$REPO_DIR"
-else
-    log "Repository already exists in $REPO_DIR; updating"
-    git -C "$REPO_DIR" pull --ff-only
+if [ ! -f "requirements.txt" ] || [ ! -f "main.py" ]; then
+    echo "[ERROR] Execute this script from the repository root directory." >&2
+    echo "[ERROR] Missing requirements.txt and/or main.py in: $PROJECT_DIR" >&2
+    exit 1
 fi
-
-cd "$REPO_DIR"
 
 if [ "$ENABLE_DOCKER_GROUP" = "1" ]; then
     if ! groups "$USER" | grep -qw docker; then
@@ -47,10 +41,10 @@ if [ "$ENABLE_DOCKER_GROUP" = "1" ]; then
 fi
 
 if [ ! -d "$VENV_DIR" ]; then
-    log "Creating virtual environment in $REPO_DIR/$VENV_DIR"
+    log "Creating virtual environment in $PROJECT_DIR/$VENV_DIR"
     "$PYTHON_BIN" -m venv "$VENV_DIR"
 else
-    log "Virtual environment already exists in $REPO_DIR/$VENV_DIR"
+    log "Virtual environment already exists in $PROJECT_DIR/$VENV_DIR"
 fi
 
 log "Installing Python dependencies"
@@ -65,9 +59,8 @@ if [ "$RUN_SERVER" = "1" ]; then
 fi
 
 echo
-echo "[OK] Environment prepared in $REPO_DIR"
+echo "[OK] Environment prepared in $PROJECT_DIR"
 echo "Next steps:"
-echo "  cd $REPO_DIR"
 echo "  source $VENV_DIR/bin/activate"
 echo "  python main.py"
 echo

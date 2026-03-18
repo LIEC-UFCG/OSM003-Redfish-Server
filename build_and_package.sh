@@ -2,45 +2,6 @@
 
 # Nome do script principal
 SCRIPT_NAME="main.py"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-
-# Verifica dependências Python necessárias para gerar binário funcional
-echo "[*] Verificando dependências Python para build..."
-"$PYTHON_BIN" - <<'PY'
-import importlib
-import sys
-
-required = [
-    "flask",
-    "psutil",
-    "cpuinfo",
-    "bcrypt",
-    "ssdpy",
-    "docker",
-    "apscheduler",
-    "flask_limiter",
-    "flask_talisman",
-    "PyInstaller",
-]
-
-missing = []
-for mod in required:
-    try:
-        importlib.import_module(mod)
-    except Exception:
-        missing.append(mod)
-
-if missing:
-    print("[ERRO] Dependências ausentes para build:", ", ".join(missing))
-    print("Instale com: pip install -r requirements.txt pyinstaller")
-    sys.exit(1)
-
-print("[✓] Dependências de build OK")
-PY
-
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
 
 # Verifica se o script existe
 if [[ ! -f "$SCRIPT_NAME" ]]; then
@@ -68,14 +29,7 @@ echo "[*] Arquitetura detectada: $ARCH"
 echo "[*] Gerando binário com PyInstaller..."
 
 # Gera binário
-rm -rf build dist
-"$PYTHON_BIN" -m PyInstaller \
-    --clean \
-    --onefile \
-    --hidden-import flask_talisman \
-    --hidden-import flask_limiter \
-    --hidden-import apscheduler.schedulers.background \
-    "$SCRIPT_NAME"
+pyinstaller --onefile "$SCRIPT_NAME"
 
 # Verifica se o executável foi criado
 if [[ ! -f "dist/main" ]]; then

@@ -254,6 +254,87 @@ def power_health():
 
 
 
+def _get_dcn_thermal_temp():
+    """
+    Obtém a temperatura do processador a partir de múltiplas fontes em DCN (Linux genérico).
+    Tenta thermal_zone, hwmon, e sensores alternativos.
+
+    Returns:
+        float: Temperatura em graus Celsius, ou None se não encontrado.
+    """
+    # Método 1: /sys/class/thermal/
+    thermal_dir = "/sys/class/thermal"
+    if os.path.exists(thermal_dir):
+        # Tenta thermal_zone0 primeiro
+        temp_path = os.path.join(thermal_dir, "thermal_zone0", "temp")
+        if os.path.exists(temp_path):
+            try:
+                with open(temp_path, "r") as f:
+                    temp_millicelsius = int(f.read().strip())
+                    return temp_millicelsius / 1000.0
+            except Exception:
+                pass
+        
+        # Tenta outras zonas térmicas
+        try:
+            for zone_dir in sorted(os.listdir(thermal_dir)):
+                if zone_dir.startswith("thermal_zone"):
+                    temp_path = os.path.join(thermal_dir, zone_dir, "temp")
+                    if os.path.exists(temp_path):
+                        try:
+                            with open(temp_path, "r") as f:
+                                temp_millicelsius = int(f.read().strip())
+                                return temp_millicelsius / 1000.0
+                        except Exception:
+                            continue
+        except Exception:
+            pass
+    
+    # Método 2: /sys/class/hwmon/
+    hwmon_dir = "/sys/class/hwmon"
+    if os.path.exists(hwmon_dir):
+        try:
+            for hwmon in sorted(os.listdir(hwmon_dir)):
+                hwmon_path = os.path.join(hwmon_dir, hwmon)
+                # Procura por temp*_input (temp1_input, temp2_input, etc)
+                try:
+                    for temp_file in sorted(os.listdir(hwmon_path)):
+                        if temp_file.startswith("temp") and temp_file.endswith("_input"):
+                            temp_input_path = os.path.join(hwmon_path, temp_file)
+                            try:
+                                with open(temp_input_path, "r") as f:
+                                    temp_millicelsius = int(f.read().strip())
+                                    # Se o valor é muito pequeno, provavelmente não é temperatura
+                                    if temp_millicelsius > 1000:  # Pelo menos 1°C
+                                        return temp_millicelsius / 1000.0
+                            except Exception:
+                                continue
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    
+    # Método 3: Comando 'sensors' se disponível
+    try:
+        output = check_output(["sensors"], stderr=DEVNULL).decode("utf-8")
+        # Procura por linhas com "Core" ou "Package" e extrai temperatura
+        for line in output.split("\n"):
+            if ("Core" in line or "Package" in line or "CPU" in line) and "°C" in line:
+                # Extrai o valor numérico antes de °C
+                parts = line.split()
+                for i, part in enumerate(parts):
+                    if "°C" in part and i > 0:
+                        try:
+                            temp_str = parts[i-1].replace("+", "").replace("°C", "")
+                            return float(temp_str)
+                        except Exception:
+                            continue
+    except Exception:
+        pass
+    
+    return None
+
+
 def temp_health():
     """
     Retorna o status da temperatura do processador.
@@ -273,20 +354,15 @@ def temp_health():
         
     elif env == 'dcn':
         try:
-            # Lê a temperatura do processador do sistema
-            temp_path = "/sys/class/thermal/thermal_zone0/temp"
-            if os.path.exists(temp_path):
-                with open(temp_path, "r") as f:
-                    temp = int(f.read().strip()) / 1000.0  # A temperatura geralmente está em millicelsius
-                    if temp <= 95:
-                        return "OK"
-                    else:
-                        return "Warning"
+            temp = _get_dcn_thermal_temp()
+            if temp is not None:
+                if temp <= 95:
+                    return "OK"
+                else:
+                    return "Warning"
             else:
-                print(f"Arquivo {temp_path} não encontrado.")
                 return "Unknown"
         except Exception as e:
-            print(f"Erro ao calcular o status da temperatura: {e}")
             return "Unknown"
 
 
@@ -544,17 +620,12 @@ def cpu_temp():
     
     elif env == 'dcn':
         try:
-            temp_path = "/sys/class/thermal/thermal_zone0/temp"
-            if os.path.exists(temp_path):
-                with open(temp_path, "r") as f:
-                    temp_millicelsius = int(f.read().strip())  # Em millicelsius
-                    temp_celsius = temp_millicelsius / 1000.0  # Converte para Celsius
-                    return f"{temp_celsius:.1f}"  # Retorna com uma casa decimal
+            temp = _get_dcn_thermal_temp()
+            if temp is not None:
+                return f"{temp:.1f}"  # Retorna com uma casa decimal
             else:
-                print(f"Arquivo {temp_path} não encontrado.")
                 return "Unknown"
         except Exception as e:
-            print(f"Erro ao capturar a temperatura da CPU: {e}")
             return "Unknown"
 
 def memory_total():

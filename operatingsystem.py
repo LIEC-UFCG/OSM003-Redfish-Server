@@ -3,10 +3,10 @@ import readings
 
 def get_operating_system():
     """
-    Retorna informações detalhadas do sistema operacional no formato Redfish.
+    Returns detailed information about the operating system in Redfish format.
 
     Returns:
-        flask.Response: Resposta JSON com os dados do sistema operacional.
+        flask.Response: JSON response with the operating system data.
     """
     operating_system = {
         "@odata.type": "#OperatingSystem.v1_0_2.OperatingSystem",
@@ -40,12 +40,12 @@ def get_operating_system():
 
 def get_operating_system_metrics():
     """
-    Retorna as métricas do sistema operacional, incluindo métricas de rede, memória, processador e volumes.
+    Returns the operating system metrics, including network, memory, processor and volume metrics.
 
-    Se o serviço de métricas estiver desabilitado, retorna apenas o campo ServiceEnabled como False.
+    If the metrics service is disabled, returns only the ServiceEnabled field as False.
 
     Returns:
-        flask.Response: Resposta JSON com as métricas do sistema operacional ou ServiceEnabled=False.
+        flask.Response: JSON response with the operating system metrics or ServiceEnabled=False.
     """
     if not readings.service_enabled_state["OperatingSystemMetrics"]:
         return jsonify({
@@ -75,13 +75,13 @@ def get_operating_system_metrics():
 
 def update_service_enabled(data):
     """
-    Atualiza o estado ServiceEnabled das categorias de métricas do sistema operacional.
+    Updates the ServiceEnabled state of the operating system metrics categories.
 
     Args:
-        data (dict): Dicionário com as categorias e seus novos estados booleanos.
+        data (dict): Dictionary with the categories and their new boolean states.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro caso a categoria seja inválida.
+        flask.Response: Success message or error if the category is invalid.
     """
     updated = False
     for category, state in data.items():

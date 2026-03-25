@@ -2,10 +2,10 @@ import readings
 
 def get_chassis():
     """
-    Retorna a coleção de chassis do sistema.
+    Returns the system chassis collection.
 
     Returns:
-        dict: Dicionário com informações da coleção de chassis no formato Redfish.
+        dict: Dictionary with chassis collection information in Redfish format.
     """
     chassis = {
         "@odata.type": "#ChassisCollection.ChassisCollection",
@@ -22,10 +22,10 @@ def get_chassis():
 
 def get_chassis_id():
     """
-    Retorna informações detalhadas do chassi identificado pelo ID.
+    Returns detailed information about the chassis identified by ID.
 
     Returns:
-        dict: Dicionário com informações do chassi no formato Redfish.
+        dict: Dictionary with chassis information in Redfish format.
     """
     chassis_id = {
         "@odata.type": "#Chassis.v1_26_0.Chassis",
@@ -64,10 +64,10 @@ def get_chassis_id():
 
 def get_sensors():
     """
-    Retorna informações dos sensores do chassi.
+    Returns information about chassis sensors.
 
     Returns:
-        dict: Dicionário com leituras dos sensores do chassi no formato Redfish.
+        dict: Dictionary with readings from chassis sensors in Redfish format.
     """
     sensors = {
         "@odata.type": "#SensorCollection.SensorCollection",
@@ -83,10 +83,10 @@ def get_sensors():
 
 def get_thermalSubsystem():
     """
-    Retorna informações do subsistema térmico do chassi.
+    Returns information about the chassis thermal subsystem.
 
     Returns:
-        dict: Dicionário com informações do subsistema térmico no formato Redfish.
+        dict: Dictionary with thermal subsystem information in Redfish format.
     """
     thermalsub = {
         "@odata.type": "#ThermalSubsystem.v1_3_3.ThermalSubsystem",
@@ -106,10 +106,10 @@ def get_thermalSubsystem():
 
 def get_thermalMetrics():
     """
-    Retorna as métricas térmicas do chassi.
+    Returns the thermal metrics for the chassis.
 
     Returns:
-        dict: Dicionário com leituras de temperatura do chassi no formato Redfish.
+        dict: Dictionary with temperature readings from the chassis in Redfish format.
     """
     metrics = {
         "@odata.type": "#ThermalMetrics.v1_3_2.ThermalMetrics",
@@ -128,10 +128,10 @@ def get_thermalMetrics():
 
 def get_powerSubsystem():
     """
-    Retorna informações do subsistema de energia do chassi.
+    Returns information about the chassis power subsystem.
 
     Returns:
-        dict: Dicionário com informações do subsistema de energia no formato Redfish.
+        dict: Dictionary with power subsystem information in Redfish format.
     """
     power = {
         "@odata.type": "#PowerSubsystem.v1_1_3.PowerSubsystem",

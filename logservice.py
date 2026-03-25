@@ -15,13 +15,13 @@ ERROR_LOG_FILE = os.path.join(LOG_DIR, "error_log.json")
 LOG_SERVICE_STATUS = {"Health": "OK", "State": "Enabled"}
 
 
-# Carregar logs do arquivo JSON
+# Load logs from JSON file
 def load_logs():
     """
-    Carrega os logs do arquivo JSON.
+    Loads logs from JSON file.
 
     Returns:
-        list: Lista de dicionários representando os logs. Retorna lista vazia se o arquivo não existir ou estiver corrompido.
+        list: List of dictionaries representing logs. Returns empty list if file does not exist or is corrupted.
     """
     if os.path.exists(LOG_FILE):
         try:
@@ -30,16 +30,16 @@ def load_logs():
                 if isinstance(data, list):
                     return data
         except json.JSONDecodeError:
-            pass  # Se houver erro, retorna uma lista vazia
+            pass  # If error occurs, return empty list
     return []
 
-# Salvar logs no arquivo JSON
+# Save logs to JSON file
 def save_logs(logs):
     """
-    Salva a lista de logs no arquivo JSON.
+    Saves the list of logs to JSON file.
 
     Args:
-        logs (list): Lista de dicionários de logs a serem salvos.
+        logs (list): List of log dictionaries to be saved.
     """
     try:
         with open(LOG_FILE, "w") as file:
@@ -47,31 +47,31 @@ def save_logs(logs):
         LOG_SERVICE_STATUS["Health"] = "OK"
     except Exception as e:
         LOG_SERVICE_STATUS["Health"] = "Critical"
-        # Aqui você pode logar no syslog, enviar alerta, etc.
-        print(f"Erro ao salvar logs: {e}")
+        # Here you can log to syslog, send alert, etc.
+        print(f"Error saving logs: {e}")
 
 def ensure_dict(value):
     """
-    Garante que o valor seja um dicionário.
+    Ensures the value is a dictionary.
 
     Args:
-        value: Valor a ser verificado.
+        value: Value to be checked.
 
     Returns:
-        dict: O valor original se for um dicionário, ou um dicionário vazio caso contrário.
+        dict: The original value if it is a dictionary, or an empty dictionary otherwise.
     """
     return value if isinstance(value, dict) else {}
 
-# Função para retornar a coleção de LogServices disponíveis para um System
+# Function to return the collection of LogServices available for a System
 def get_log_services_collection(system_id):
     """
-    Retorna a coleção de serviços de log disponíveis para um sistema específico.
+    Returns the collection of log services available for a specific system.
 
     Args:
-        system_id (str): ID do sistema.
+        system_id (str): System ID.
 
     Returns:
-        flask.Response: Resposta JSON com a coleção de serviços de log.
+        flask.Response: JSON response with the collection of log services.
     """
     log_services = {
         "@odata.type": "#LogServiceCollection.LogServiceCollection",
@@ -91,14 +91,14 @@ def get_log_services_collection(system_id):
 
 def get_log_service_detail(system_id, log_id):
     """
-    Retorna um serviço de log específico.
+    Returns a specific log service.
 
     Args:
-        system_id (str): ID do sistema.
-        log_id (str): ID do serviço de log.
+        system_id (str): System ID.
+        log_id (str): ID of the log service.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes do serviço de log.
+        flask.Response: JSON response with log service details.
     """
     log_service = {
         "@odata.type": "#LogService.v1_7_0.LogService",
@@ -117,14 +117,14 @@ def get_log_service_detail(system_id, log_id):
 
 def get_log_service(system_id, logservice_id):
     """
-    Retorna um LogService específico.
+    Returns a specific LogService.
 
     Args:
-        system_id (str): ID do sistema.
-        logservice_id (str): ID do serviço de log.
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes do LogService.
+        flask.Response: JSON response with LogService details.
     """
     log_service = {
         "@odata.type": "#LogService.v1_7_0.LogService",
@@ -139,17 +139,17 @@ def get_log_service(system_id, logservice_id):
 
     return jsonify(log_service)
 
-# Retorna a coleção de LogEntry de um System específico
+# Returns the collection of LogEntry for a specific System
 def get_log_entries(system_id, log_id):
     """
-    Retorna a coleção de Log Entries para um Log específico.
+    Returns the collection of Log Entries for a specific log.
 
     Args:
-        system_id (str): ID do sistema.
-        log_id (str): ID do serviço de log.
+        system_id (str): System ID.
+        log_id (str): ID of the log service.
 
     Returns:
-        flask.Response: Resposta JSON com a coleção de Log Entries.
+        flask.Response: JSON response with the collection of Log Entries.
     """
     logs = load_logs()
     
@@ -163,18 +163,18 @@ def get_log_entries(system_id, log_id):
 
     return jsonify(response)
 
-# Retorna um LogEntry específico
+# Returns a specific LogEntry
 def get_log_entry_by_id(system_id, logservice_id, event_id):
     """
-    Retorna um LogEntry específico.
+    Returns a specific LogEntry.
 
     Args:
-        system_id (str): ID do sistema.
-        logservice_id (str): ID do serviço de log.
-        event_id (str): ID do evento de log.
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        event_id (str): Log event ID.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes do LogEntry ou erro 404 se não encontrado.
+        flask.Response: JSON response with LogEntry details or 404 error if not found.
     """
     logs = load_logs()
     
@@ -200,23 +200,23 @@ def get_log_entry_by_id(system_id, logservice_id, event_id):
 
 def add_log_entry(system_id, logservice_id, entry_type, severity, message, message_id, user_name=None):
     """
-    Adiciona um novo LogEntry ao serviço de log.
+    Adds a new LogEntry to the log service.
 
     Args:
-        system_id (str): ID do sistema.
-        logservice_id (str): ID do serviço de log.
-        entry_type (str): Tipo da entrada de log (ex: 'Event').
-        severity (str): Severidade do evento (ex: 'Warning').
-        message (str): Mensagem do evento.
-        message_id (str): Identificador da mensagem.
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        entry_type (str): Type of log entry (ex: 'Event').
+        severity (str): Severity of the event (ex: 'Warning').
+        message (str): Event message.
+        message_id (str): Message identifier.
 
     Returns:
-        flask.Response: Resposta JSON com o novo LogEntry criado e status 201.
+        flask.Response: JSON response with the new LogEntry created and status 201.
     """
     logs = load_logs()
-    new_event_id = str(int(datetime.utcnow().timestamp() * 1000))  # Gera um ID baseado no timestamp
+    new_event_id = str(int(datetime.utcnow().timestamp() * 1000))  # Generates an ID based on timestamp
 
-    # Garantimos que os campos obrigatórios existam antes de salvar
+    # Ensure that mandatory fields exist before saving
     if not entry_type:
         entry_type = "Event"
     if not severity:
@@ -296,10 +296,10 @@ def add_audit_log_entry(system_id, logservice_id, message, user_name=None, sever
             json.dump(logs, f, indent=4)
     except Exception as e:
         LOG_SERVICE_STATUS["Health"] = "Critical"
-        print(f"Erro ao salvar audit log: {e}")
+        print(f"Error saving audit log: {e}")
 
-# Repita o mesmo padrão para add_auth_log_entry, add_event_log_entry, add_error_log_entry,
-# mudando apenas EntryType, arquivo de destino e valores padrão de MessageId/Severity.
+# Repeat the same pattern for add_auth_log_entry, add_event_log_entry, add_error_log_entry,
+# changing only EntryType, destination file and default values of MessageId/Severity.
 
 def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Auth.Action.Success"):
     logs = []
@@ -331,7 +331,7 @@ def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severi
             json.dump(logs, f, indent=4)
     except Exception as e:
         LOG_SERVICE_STATUS["Health"] = "Critical"
-        print(f"Erro ao salvar auth log: {e}")
+        print(f"Error saving auth log: {e}")
 
 def add_event_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Event.Action.Success"):
     logs = []
@@ -363,7 +363,7 @@ def add_event_log_entry(system_id, logservice_id, message, user_name=None, sever
             json.dump(logs, f, indent=4)
     except Exception as e:
         LOG_SERVICE_STATUS["Health"] = "Critical"
-        print(f"Erro ao salvar event log: {e}")
+        print(f"Error saving event log: {e}")
 
 def add_error_log_entry(system_id, logservice_id, message, user_name=None, severity="Critical", message_id="Error.Action.Failed"):
     logs = []
@@ -395,5 +395,5 @@ def add_error_log_entry(system_id, logservice_id, message, user_name=None, sever
             json.dump(logs, f, indent=4)
     except Exception as e:
         LOG_SERVICE_STATUS["Health"] = "Critical"
-        print(f"Erro ao salvar error log: {e}")
+        print(f"Error saving error log: {e}")
 

@@ -4,7 +4,7 @@ from flask import jsonify, make_response
 
 ROLES_FILE = "roles.json"
 
-# Definição inicial dos papéis (Roles) disponíveis no sistema
+# Initial definition of roles available in the system
 default_roles = {
     "Administrator": {
         "Id": "Administrator",
@@ -29,39 +29,39 @@ default_roles = {
     }
 }
 
-# Função para carregar roles
+# Function to load roles
 def load_roles():
     """
-    Carrega os papéis (roles) do arquivo JSON.
+    Loads the roles from JSON file.
 
     Returns:
-        dict: Dicionário com os papéis carregados do arquivo ou os papéis padrão se o arquivo não existir.
+        dict: Dictionary with roles loaded from file or default roles if file does not exist.
     """
     if os.path.exists(ROLES_FILE):
         with open(ROLES_FILE, "r") as file:
             return json.load(file)
     return default_roles.copy()
 
-# Função para salvar roles
+# Function to save roles
 def save_roles(roles):
     """
-    Salva os papéis (roles) no arquivo JSON.
+    Saves the roles to JSON file.
 
     Args:
-        roles (dict): Dicionário de papéis a serem salvos.
+        roles (dict): Dictionary of roles to be saved.
     """
     with open(ROLES_FILE, "w") as file:
         json.dump(roles, file, indent=4)
 
-# Inicializa a lista de roles
+# Initialize the roles list
 roles = load_roles()
 
 def get_roles():
     """
-    Retorna a coleção de roles disponíveis.
+    Returns the collection of available roles.
 
     Returns:
-        flask.Response: JSON com a coleção de roles no formato Redfish.
+        flask.Response: JSON with the roles collection in Redfish format.
     """
     response = {
         "@odata.id": "/redfish/v1/AccountService/Roles",
@@ -75,13 +75,13 @@ def get_roles():
 
 def get_role(role_id):
     """
-    Retorna detalhes de um Role específico.
+    Returns details of a specific role.
 
     Args:
-        role_id (str): ID do papel (role) a ser retornado.
+        role_id (str): ID of the role to be returned.
 
     Returns:
-        flask.Response: JSON com os detalhes do role ou erro 404 se não encontrado.
+        flask.Response: JSON with role details or 404 error if not found.
     """
     if role_id in roles:
         role_data = roles[role_id]

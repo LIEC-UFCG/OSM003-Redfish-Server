@@ -20,11 +20,10 @@ SESSIONS_FILE = "sessions.json"
 ACCOUNTS_FILE = "accounts.json"
 
 def load_privilege_registry():
-    """
-    Carrega o arquivo privilege_registry.json e retorna o conteúdo.
-
+    """Load privilege_registry.json file and return content.
+    
     Returns:
-        dict: Conteúdo do privilege_registry.json.
+        dict: Content of privilege_registry.json.
     """
     if os.path.exists(PRIVILEGE_REGISTRY_FILE):
         with open(PRIVILEGE_REGISTRY_FILE, "r") as f:
@@ -32,11 +31,10 @@ def load_privilege_registry():
     return {}
 
 def load_sessions():
-    """
-    Carrega as sessões salvas do arquivo JSON.
-
+    """Load saved sessions from JSON file.
+    
     Returns:
-        dict: Dicionário com as sessões ativas. Retorna {} se o arquivo não existir ou estiver corrompido.
+        dict: Dictionary with active sessions. Returns {} if file doesn't exist or is corrupted.
     """
     if os.path.exists(SESSIONS_FILE):
         try:
@@ -47,11 +45,10 @@ def load_sessions():
     return {}
 
 def load_accounts():
-    """
-    Carrega as contas de usuário do arquivo JSON.
-
+    """Load user accounts from JSON file.
+    
     Returns:
-        dict: Dicionário com as contas de usuário. Retorna {} se o arquivo não existir.
+        dict: Dictionary with user accounts. Returns {} if file doesn't exist.
     """
     if os.path.exists(ACCOUNTS_FILE):
         with open(ACCOUNTS_FILE, "r") as file:
@@ -61,28 +58,27 @@ def load_accounts():
 
 
 def requires_authentication(func):
-    """
-    Decorador que exige autenticação para acessar a rota protegida.
-
-    O usuário pode se autenticar via token de sessão (X-Auth-Token) ou via autenticação básica HTTP.
-    Se a sessão expirar, ela é removida. Se a autenticação for bem-sucedida, a função decorada é executada.
-
+    """Decorator that requires authentication to access protected route.
+    
+    User can authenticate via session token (X-Auth-Token) or HTTP Basic Authentication.
+    If session expires, it is removed. If authentication succeeds, decorated function is executed.
+    
     Args:
-        func (callable): Função de rota Flask a ser protegida.
-
+        func (callable): Flask route function to be protected.
+    
     Returns:
-        callable: Função wrapper que exige autenticação.
+        callable: Wrapper function that requires authentication.
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
         sessions = load_sessions()
         current_time = time.time()
 
-        # --- Autenticação por token ---
+        # --- Authentication via token ---
         auth_token = request.headers.get("X-Auth-Token")
         for sid, session in list(sessions.items()):
             if auth_token == session.get("Token"):
-                # Verifica se expirou
+                # Check if expired
                 if current_time > session["ExpirationTime"]:
                     del sessions[sid]
                     save_sessions(sessions)
@@ -100,12 +96,12 @@ def requires_authentication(func):
                 username = session.get("UserName")
                 user = next((acc for acc in accounts.values() if acc["UserName"] == username), None)
                 if user:
-                    # Checagem padrão: desabilitada ou bloqueada manualmente
+                    # Default check: disabled or manually blocked
                     if not user.get("Enabled", True):
                         return make_response({"error": "Service disabled"}, 401)
 
 
-                    # BLOQUEIO AUTOMÁTICO
+                    # AUTOMATIC LOCKOUT
                     threshold = account_service_state.get("AccountLockoutThreshold", 5)
                     duration = account_service_state.get("AccountLockoutDuration", 600)
                     reset_after = account_service_state.get("AccountLockoutCounterResetAfter", 300)
@@ -117,10 +113,10 @@ def requires_authentication(func):
                     user.setdefault("_locked_until", 0)
                     user.setdefault("Locked", False)
 
-                    # Se está bloqueado automaticamente, verifica se já pode desbloquear
+                    # If locked automatically, check if can unlock now
                     if user.get("Locked", False):
                         if user["_locked_until"] and now >= user["_locked_until"]:
-                            # Desbloqueio automático após o tempo
+                            # Automatic unlock after time
                             user["Locked"] = False
                             user["_failed_attempts"] = 0
                             user["_locked_until"] = 0
@@ -147,18 +143,18 @@ def requires_authentication(func):
                         )
                         return make_response({"error": "Password must be changed"}, 401)
                     
-                    # Reset automático do contador se habilitado
+                    # Automatic counter reset if enabled
                     if reset_enabled and now - user["_last_failed_attempt"] > reset_after:
                         user["_failed_attempts"] = 0
 
 
-                # Estende a sessão
+                # Extend session
                 session["ExpirationTime"] = current_time + SESSION_TIMEOUT
                 sessions[sid] = session
                 save_sessions(sessions)
                 return func(*args, **kwargs)
 
-        # --- Autenticação básica ---
+        # --- Basic Authentication ---
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Basic "):
             encoded_credentials = auth_header.split(" ")[1]
@@ -168,11 +164,11 @@ def requires_authentication(func):
                 accounts = load_accounts()
                 user = next((acc for acc in accounts.values() if acc["UserName"] == username), None)
                 if user:
-                    # Checagem padrão: desabilitada ou bloqueada manualmente
+                    # Default check: disabled or manually blocked
                     if not user.get("Enabled", True):
                         return make_response({"error": "Service disabled"}, 401)
 
-                    # BLOQUEIO AUTOMÁTICO
+                    # AUTOMATIC LOCKOUT
                     threshold = account_service_state.get("AccountLockoutThreshold", 5)
                     duration = account_service_state.get("AccountLockoutDuration", 600)
                     reset_after = account_service_state.get("AccountLockoutCounterResetAfter", 300)
@@ -184,7 +180,7 @@ def requires_authentication(func):
                     user.setdefault("_locked_until", 0)
                     user.setdefault("Locked", False)
 
-                    # Se está bloqueado, verifica se já pode desbloquear
+                    # If locked, check if can unlock now
                     if user.get("Locked", False):
                         if user["_locked_until"] and now >= user["_locked_until"]:
                             user["Locked"] = False
@@ -206,11 +202,11 @@ def requires_authentication(func):
                         )
                         return make_response({"error": "Password must be changed"}, 401)
 
-                    # Reset automático do contador se habilitado
+                    # Automatic counter reset if enabled
                     if reset_enabled and now - user["_last_failed_attempt"] > reset_after:
                         user["_failed_attempts"] = 0
 
-                    # Validação da senha
+                    # Password validation
                     if bcrypt.checkpw(password.encode(), user["Password"].encode()):
                         user["_failed_attempts"] = 0
                         user["_last_failed_attempt"] = 0
@@ -250,25 +246,24 @@ def requires_authentication(func):
 
 
 def get_user_role_id():
-    """
-    Obtém o RoleId do usuário autenticado na requisição.
-
-    Verifica o token de sessão (X-Auth-Token) ou as credenciais de autenticação básica HTTP.
-    Retorna o RoleId associado ao usuário autenticado, se válido.
-
+    """Get RoleId of the authenticated user in the request.
+    
+    Checks session token (X-Auth-Token) or HTTP Basic Authentication credentials.
+    Returns the RoleId associated with the authenticated user if valid.
+    
     Returns:
-        str or None: RoleId do usuário autenticado, ou None se não autenticado.
+        str or None: RoleId of authenticated user, or None if not authenticated.
     """
     sessions = load_sessions()
     token = request.headers.get("X-Auth-Token")
     current_time = time.time()
 
-    # Checa sessão via token
+    # Check session via token
     for sid, session in sessions.items():
         if session.get("Token") == token and current_time < session["ExpirationTime"]:
             return session["RoleId"]
 
-    # Checa autenticação básica
+    # Check basic authentication
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Basic "):
         import base64
@@ -283,17 +278,16 @@ def get_user_role_id():
     return None
 
 def requires_privilege(entity):
-    """
-    Decorador que exige privilégios específicos para acessar uma rota.
-
-    Verifica se o usuário autenticado possui os privilégios necessários para a entidade e método HTTP
-    solicitados, conforme o Privilege Registry. Considera também SubordinateOverrides se definidos.
-
+    """Decorator that requires specific privileges to access a route.
+    
+    Checks if authenticated user has necessary privileges for the requested entity and HTTP method,
+    according to Privilege Registry. Also considers SubordinateOverrides if defined.
+    
     Args:
-        entity (str): Nome da entidade Redfish para checagem de privilégio.
-
+        entity (str): Name of Redfish entity for privilege check.
+    
     Returns:
-        callable: Função decoradora que protege a rota.
+        callable: Decorator function that protects the route.
     """
     def decorator(func):
         @wraps(func)
@@ -313,7 +307,7 @@ def requires_privilege(entity):
 
             for mapping in mappings:
                 if mapping.get("Entity") == entity:
-                    # Verifica SubordinateOverrides
+                    # Check SubordinateOverrides
                     sub_overrides = mapping.get("SubordinateOverrides", [])
                     found_override = False
                     for override in sub_overrides:
@@ -332,11 +326,11 @@ def requires_privilege(entity):
                                         if any(priv in assigned_privs for priv in item.get("Privilege", [])):
                                             return func(*args, **kwargs)
                                     found_override = True
-                    # Se encontrou override mas não tinha privilégio, bloqueia
+                    # If found override but no privilege, block
                     if found_override:
                         return make_response({"error": "Insufficient privileges (subordinate)"}, 403)
 
-                    # Caso não tenha override, segue o padrão
+                    # If no override, follow standard
                     operation_map = mapping.get("OperationMap", {})
                     required_privs = operation_map.get(method, [])
                     for item in required_privs:

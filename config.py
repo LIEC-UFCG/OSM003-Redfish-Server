@@ -1,16 +1,16 @@
-# Porta em que o Flask irá rodar
+# Port where Flask will run
 FLASK_PORT = 5004
 
-# IP de escuta do Flask (0.0.0.0 aceita conexões de qualquer interface)
+# Flask listen IP (0.0.0.0 accepts connections from any interface)
 FLASK_IP = "0.0.0.0"
 
-# Caminho para o arquivo do certificado SSL
+# Path to SSL certificate file
 CERT_FILE = "domainSAN.crt"
 
-# Caminho para o arquivo da chave privada SSL
+# Path to SSL private key file
 KEY_FILE = "domain.key"
 
-# Tempo de expiração da sessão em segundos
+# Session expiration time in seconds
 SESSION_TIMEOUT = 60*60
 
 DCN_ID = "DCN1"

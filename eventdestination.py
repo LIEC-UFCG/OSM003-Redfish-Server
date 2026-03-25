@@ -2,46 +2,46 @@ import json
 import os
 from flask import jsonify, request, make_response
 
-# Caminho do arquivo onde as assinaturas serão armazenadas
+# File path where subscriptions will be stored
 EVENT_SUBSCRIPTIONS_FILE = "event_subscriptions.json"
 
-# Estrutura inicial de assinaturas de eventos
+# Initial event subscriptions structure
 default_event_subscriptions = {}
 
-# Carrega as assinaturas armazenadas
+# Loads stored subscriptions
 def load_event_subscriptions():
     """
-    Carrega as assinaturas de eventos do arquivo JSON.
+    Loads event subscriptions from JSON file.
 
     Returns:
-        dict: Dicionário com as assinaturas de eventos. Retorna um dicionário vazio se o arquivo não existir.
+        dict: Dictionary with event subscriptions. Returns an empty dictionary if file does not exist.
     """
     if os.path.exists(EVENT_SUBSCRIPTIONS_FILE):
         with open(EVENT_SUBSCRIPTIONS_FILE, "r") as file:
             return json.load(file)
     return default_event_subscriptions.copy()
 
-# Salva as assinaturas de eventos
+# Saves event subscriptions
 def save_event_subscriptions(subscriptions):
     """
-    Salva as assinaturas de eventos no arquivo JSON.
+    Saves event subscriptions to JSON file.
 
     Args:
-        subscriptions (dict): Dicionário com as assinaturas de eventos a serem salvas.
+        subscriptions (dict): Dictionary with event subscriptions to save.
     """
     with open(EVENT_SUBSCRIPTIONS_FILE, "w") as file:
         json.dump(subscriptions, file, indent=4)
 
-# Inicializa as assinaturas de eventos na memória
+# Initializes event subscriptions in memory
 event_subscriptions = load_event_subscriptions()
 
-# Retorna todas as assinaturas de eventos
+# Returns all event subscriptions
 def get_event_subscriptions():
     """
-    Retorna todas as assinaturas de eventos no formato Redfish.
+    Returns all event subscriptions in Redfish format.
 
     Returns:
-        flask.Response: Resposta JSON com a coleção de assinaturas de eventos.
+        flask.Response: JSON response with event subscriptions collection.
     """
     response = {
         "@odata.context": "/redfish/v1/$metadata#EventDestinationCollection.EventDestinationCollection",
@@ -53,33 +53,33 @@ def get_event_subscriptions():
     }
     return jsonify(response)
 
-# Retorna detalhes de uma assinatura específica
+# Returns details for a specific subscription
 def get_event_subscription(subscription_id):
     """
-    Retorna detalhes de uma assinatura de evento específica.
+    Returns details for a specific event subscription.
 
     Args:
-        subscription_id (str): ID da assinatura de evento.
+        subscription_id (str): Event subscription ID.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes da assinatura ou erro 404 se não encontrada.
+        flask.Response: JSON response with subscription details or 404 error if not found.
     """
     if subscription_id in event_subscriptions:
         return jsonify(event_subscriptions[subscription_id])
     return make_response({"error": "Subscription not found"}, 404)
 
-# Cria uma nova assinatura de eventos
+# Creates a new event subscription
 def create_event_subscription():
     """
-    Cria uma nova assinatura de eventos.
+    Creates a new event subscription.
 
     Returns:
-        flask.Response: Resposta JSON com a nova assinatura criada e status 201,
-                        ou erro 400 se faltar algum campo obrigatório.
+        flask.Response: JSON response with the new subscription and status 201,
+                        or 400 error if any required field is missing.
     """
     data = request.json
 
-    # Verifica se todos os campos obrigatórios estão presentes
+    # Checks whether all required fields are present
     required_fields = ["Context", "Destination", "EventTypes", "Protocol", "SubscriptionType"]
     for field in required_fields:
         if field not in data:
@@ -99,22 +99,22 @@ def create_event_subscription():
         "SubscriptionType": data["SubscriptionType"]
     }
 
-    # Adiciona ao dicionário e salva no arquivo
+    # Adds to dictionary and saves to file
     event_subscriptions[new_id] = new_subscription
     save_event_subscriptions(event_subscriptions)
 
     return jsonify(new_subscription), 201
 
-# Deleta uma assinatura de eventos
+# Deletes an event subscription
 def delete_event_subscription(subscription_id):
     """
-    Deleta uma assinatura de evento específica.
+    Deletes a specific event subscription.
 
     Args:
-        subscription_id (str): ID da assinatura de evento a ser removida.
+        subscription_id (str): Event subscription ID to remove.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro 404 se não encontrada.
+        flask.Response: Success message or 404 error if not found.
     """
     if subscription_id in event_subscriptions:
         del event_subscriptions[subscription_id]

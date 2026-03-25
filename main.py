@@ -1,4 +1,4 @@
-# Importações necessárias para o funcionamento do servidor Flask e funcionalidades adicionais
+# Required imports for Flask server and additional functionality
 from flask import Flask, abort, jsonify, request, Response, make_response, send_from_directory, redirect
 from multiprocessing import Process
 import json
@@ -50,31 +50,31 @@ if not os.path.exists(LOG_DIR):
     try:
         os.makedirs(LOG_DIR, mode=0o700, exist_ok=True)
     except Exception as e:
-        print(f"Erro ao criar diretório de logs: {e}")
+        print(f"Error creating logs directory: {e}")
 
-# Inicializa a aplicação Flask
+# Initialize Flask application
 app = Flask(__name__) 
 Talisman(app)
 
 
 
-# Função para obter o token de autenticação do cabeçalho da requisição
-# Caso o token não esteja presente, utiliza o endereço remoto do cliente
+# Function to get the authentication token from the request header
+# If the token is not present, uses the remote address of the client
 def get_token():
     """
-    Obtém o token de autenticação do cabeçalho da requisição.
+    Retrieve authentication token from request header.
 
-    Se o token não estiver presente, utiliza o endereço remoto do cliente.
+    If token is not present, use the remote client address instead.
 
     Returns:
-        str: Token de autenticação ou endereço IP do cliente.
+        str: Authentication token or client IP address.
     """
     return request.headers.get("X-Auth-Token") or get_remote_address()
 
 
 
 
-# configuração do limiter
+# Configure rate limiter
 limiter = Limiter(
     key_func=get_token,
     app=app,
@@ -83,7 +83,7 @@ limiter = Limiter(
 )
 
 RATE_LIMIT = "1 per second"
-# Controla o rate limit por variavel de ambiente: 1/true/yes/on habilita.
+# Control rate limiting via environment variable: 1/true/yes/on enables it.
 ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").strip().lower() in ("1", "true", "yes", "on")
 
 def conditional_limit(limit):
@@ -98,103 +98,103 @@ def ratelimit_handler(e):
     current_app.logger.warning("Rate limit exceeded: %s", e)
     return jsonify(error="Too many requests"), 429
 
-# Middleware para formatar as respostas JSON de forma indentada
+# Middleware to format JSON responses with indentation
 
 @app.after_request
 def pretty_json(response):
-    """Esta funcao e um decorator usado pelo flask na formatacao de respostas solicitadas aos endpoints.
-    Formata as respostas JSON de forma identada.
-    O Content-Type application/json e setado explicitamente.
+    """Middleware to format JSON responses with indentation.
+    
+    This decorator formats all JSON responses with proper indentation for readability.
+    Content-Type is explicitly set as application/json.
     
     Args:
-        response: resposta do flask para a requisicao http
+        response: Flask response object for the HTTP request.
     Returns:
-        response: formatado com json identado
+        response: Formatted response with indented JSON.
     """
     if (
-        response.content_type == "application/json" # Verifica se a resposta é JSON
-        and response.get_data(as_text=True)         # Ignora respostas vazias
+        response.content_type == "application/json" # Check if response is JSON
+        and response.get_data(as_text=True)         # Ignore empty responses
     ):
         try:
-            # Formata o JSON com indentação
+            # Format JSON with indentation
             data = json.loads(response.get_data(as_text=True))
             pretty = json.dumps(data, indent=4)
             response.set_data(pretty)
-            response.headers["Content-Length"] = len(pretty)    # Atualiza o tamanho do conteúdo
+            response.headers["Content-Length"] = len(pretty)    # Update content length header
         except Exception:
-            pass  # Ignora erros e mantém a resposta original
+            pass  # Ignore errors and keep original response
     return response
 
-# Configuração para evitar o escape de caracteres ASCII no JSON
+# Configure to prevent ASCII character escaping in JSON output
 app.config['JSON_AS_ASCII'] = False 
 
-# Retorna uma mensagem de boas-vindas
+# Return a welcome message
 @app.route('/')
 @conditional_limit(RATE_LIMIT)
 def index():
     """
-    Rota de apresentação da aplicação Flask.
+    Home route for Flask application.
 
-    Exibe uma mensagem simples de boas-vindas indicando que o serviço RedfishPi está ativo.
+    Display a welcome message indicating that the Redfish service is active.
 
     Returns:
-        str: Mensagem de boas-vindas.
+        str: Welcome message.
     """
     return 'Bem Vindo a RedfishPi'
 
-# Rota para o endpoint /redfish, retorna a rota raiz
+# Route for /redfish endpoint, returns the root path
 @app.route('/redfish', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)
 def redfish():
     """
-    Rota para /redfish.
+    Route for /redfish endpoint.
 
     Returns:
-        tuple: Dicionário com o caminho para a versão 1 da API e código HTTP 200.
+        tuple: Dictionary with path to API v1 and HTTP 200 status code.
     """
     return {
         "v1": "/redfish/v1/"
     }, 200
 
-# Obtém os dados do Redfish root
+# Fetch Redfish root data
 redfish_data = redfish_root.get_redfish_v1()
 
-# Rota para o endpoint /redfish/v1/, retorna os dados do Redfish root
+# Route for /redfish/v1/ endpoint, returns Redfish root data
 @app.route('/redfish/v1', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)
 def get_redfish_root():
     """
-    Rota raiz.
+    Root API route.
 
     Returns:
-        flask.Response: Resposta JSON formatada com os dados do Redfish root.
+        flask.Response: Formatted JSON response with Redfish root data.
     """
     return Response(
-        json.dumps(redfish_data, indent=2, ensure_ascii=False), # Formata o JSON
-        mimetype='application/json'                             # Define o tipo de conteúdo como JSON
+        json.dumps(redfish_data, indent=2, ensure_ascii=False), # Format JSON
+        mimetype='application/json'                             # Define content type as JSON
     )
 
-# Rota para métodos não suportados no endpoint /redfish/v1/
+# Route for unsupported HTTP methods on /redfish/v1/ endpoint
 @app.route('/redfish/v1', methods=['POST', 'PATCH', 'DELETE', 'FAKEMETHODFORTEST'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)  
 def redfish_root_unsupported_methods():
     """
-    Rota para métodos não suportados no endpoint /redfish/v1/.
+    Handle unsupported HTTP methods on /redfish/v1/ endpoint.
 
     Returns:
-        flask.Response: Mensagem de erro e código HTTP 405.
+        flask.Response: Error message with HTTP 405 status code.
     """
     return jsonify({"error": "Method not allowed"}), 405
 
-# Rota para o endpoint /redfish/v1/$metadata, retorna o arquivo de metadados
+# Route for /redfish/v1/$metadata, returns metadata file
 @app.route('/redfish/v1/$metadata', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT) 
 def metadata():
-    """
-    Rota para o endpoint /redfish/v1/$metadata, retorna o arquivo de metadados.
-
+    """Route for /redfish/v1/$metadata, returns metadata file.
+    
     Returns:
-        tuple: Conteúdo do arquivo XML e cabeçalho ou mensagem de erro e código 404.
+        tuple: XML file content and header or error message and 404 code.
     """
     try:
         with open('schemas/v1/metadata.xml', 'r') as file:
@@ -202,71 +202,71 @@ def metadata():
     except FileNotFoundError:
         return jsonify({"error": "$metadata file not found"}), 404
 
-# Rota para servir arquivos de esquema do diretório schemas/v1
+# Route to serve schema files from schemas/v1 directory
 @app.route('/schemas/v1/<path:filename>', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)  
 def serve_schemas_v1(filename):
     """
-    Serve arquivos de esquemas do diretório 'schemas/v1'.
+    Serve schema files from schemas/v1 directory.
 
     Args:
-        filename (str): Nome do arquivo a ser buscado no diretório.
+        filename (str): Name of the file to retrieve from the directory.
 
     Returns:
-        flask.Response: Arquivo de schema ou mensagem de erro 404.
+        flask.Response: Schema file or 404 error message.
     """
     try:
         return send_from_directory('schemas/v1', filename)
     except FileNotFoundError:
         return jsonify({"error": f"Schema file '{filename}' not found"}), 404
 
-# Rota para servir o favicon da aplicação
+# Route to serve the application favicon
 @app.route('/favicon.ico', strict_slashes=False)
 @conditional_limit(RATE_LIMIT) 
 def favicon():
     """
-    Rota para servir o favicon da aplicação.
+    Route to serve the application favicon.
 
     Returns:
-        flask.Response: Arquivo favicon.ico.
+        flask.Response: favicon.ico file.
     """
     return send_from_directory(os.path.join(app.root_path, 'static'),
                           'favicon.ico',mimetype='image/vnd.microsoft.icon')
 
-# Rota para o endpoint /redfish/v1/odata, retorna informações básicas do OData
+# Route for /redfish/v1/odata endpoint, returns basic OData information
 @app.route('/redfish/v1/odata', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)  
 def odata():
     """
-    Rota para o endpoint /redfish/v1/odata, retorna informações básicas do OData.
+    Route for /redfish/v1/odata endpoint, returns basic OData information.
 
     Returns:
-        flask.Response: JSON com contexto OData e valor mínimo.
+        flask.Response: JSON with OData context and default value.
     """
     response = {
         "@odata.context": "/redfish/v1/$metadata",
-        "value": []  # Valor mínimo, pode ser expandido conforme necessário
+        "value": []  # Minimum value, can be expanded as needed
     }
     return jsonify(response), 200
 
-# Obtém o ID do sistema a partir do módulo readings
+# Fetch system ID from readings module
 system_id = readings.machine_id()
 
-# Rota para o endpoint /redfish/v1/AccountService/, permite GET e PATCH
+# Route for /redfish/v1/AccountService/ endpoint, allows GET and PATCH methods
 @app.route('/redfish/v1/AccountService', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("AccountService")
 def account_service():
     """
-    Rota para o endpoint /redfish/v1/AccountService/.
+    Route for /redfish/v1/AccountService/ endpoint.
 
-    Permite obter (GET) ou atualizar (PATCH) informações do AccountService.
+    Allow GET to retrieve or PATCH to update AccountService information.
 
     Returns:
         flask.Response: 
-            - GET: Retorna os dados do AccountService.
-            - PATCH: Atualiza o estado do AccountService e retorna mensagem de sucesso ou erro.
+            - GET: Returns AccountService data.
+            - PATCH: Updates AccountService state and returns success or error message.
     """
     if request.method == 'GET':
         return accountservice.get_account_service()
@@ -274,21 +274,21 @@ def account_service():
         return accountservice.update_account_service(request.json)
 
 
-# Rota para o endpoint /redfish/v1/AccountService/Accounts, permite GET e POST
+# Route for /redfish/v1/AccountService/Accounts endpoint, allows GET and POST methods
 @app.route('/redfish/v1/AccountService/Accounts', methods=['GET', 'POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("ManagerAccountCollection")
 def accounts_collection():
     """
-    Rota para o endpoint /redfish/v1/AccountService/Accounts.
+    Route for /redfish/v1/AccountService/Accounts endpoint.
 
-    Permite obter (GET) a lista de contas ou criar (POST) uma nova conta.
+    Allow GET to retrieve account list or POST to create a new account.
 
     Returns:
         flask.Response:
-            - GET: Retorna a lista de contas.
-            - POST: Retorna a nova conta criada.
+            - GET: Returns list of accounts.
+            - POST: Returns newly created account.
     """
     if request.method == 'GET':
         accounts = manageraccount.get_accounts()
@@ -310,25 +310,25 @@ def accounts_collection():
 
         return new_account, status_code
 
-# Rota para o endpoint /redfish/v1/AccountService/Accounts/<account_id>, permite GET, PATCH e DELETE
+# Route for /redfish/v1/AccountService/Accounts/<account_id> endpoint, allows GET, PATCH and DELETE methods
 @app.route('/redfish/v1/AccountService/Accounts/<account_id>', methods=['GET', 'PATCH', 'DELETE'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("ManagerAccount")
 def account_detail(account_id):
     """
-    Rota para o endpoint /redfish/v1/AccountService/Accounts/<account_id>.
+    Route for /redfish/v1/AccountService/Accounts/<account_id> endpoint.
 
-    Permite obter (GET), atualizar (PATCH) ou excluir (DELETE) uma conta específica.
+    Allow GET to retrieve, PATCH to update, or DELETE to remove a specific account.
 
     Args:
-        account_id (str): ID da conta.
+        account_id (str): Account ID.
 
     Returns:
         flask.Response:
-            - GET: Retorna os dados da conta.
-            - PATCH: Atualiza a conta.
-            - DELETE: Remove a conta.
+            - GET: Returns account data.
+            - PATCH: Updates account.
+            - DELETE: Removes account.
     """
     if request.method == 'GET':
         return manageraccount.get_account(account_id)
@@ -353,207 +353,202 @@ def account_detail(account_id):
         )
         return manageraccount.delete_account(account_id)
 
-# Rota para o endpoint /redfish/v1/AccountService/Roles, retorna os papéis disponíveis
+# Route for /redfish/v1/AccountService/Roles endpoint, returns available roles
 @app.route('/redfish/v1/AccountService/Roles', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("RoleCollection")
 def roles_collection():
     """
-    Rota para o endpoint /redfish/v1/AccountService/Roles.
+    Route for /redfish/v1/AccountService/Roles endpoint.
 
-    Retorna a lista de papéis (roles) disponíveis.
+    Returns list of available roles (roles).
 
     Returns:
-        flask.Response: Lista de papéis disponíveis.
+        flask.Response: List of available roles.
     """
     return roles.get_roles()
 
-# Rota para o endpoint /redfish/v1/AccountService/Roles/<role_id>, retorna detalhes de um papel específico
+# Route for /redfish/v1/AccountService/Roles/<role_id> endpoint, returns details of specific role
 @app.route('/redfish/v1/AccountService/Roles/<role_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("Role")
 def role_detail(role_id):
     """
-    Rota para o endpoint /redfish/v1/AccountService/Roles/<role_id>.
+    Route for /redfish/v1/AccountService/Roles/<role_id> endpoint.
 
-    Retorna detalhes de um papel (role) específico.
+    Returns details of a specific role (role).
 
     Args:
-        role_id (str): ID do papel.
+        role_id (str): Role ID.
 
     Returns:
-        flask.Response: Detalhes do papel solicitado.
+        flask.Response: Details of requested role.
     """
     return roles.get_role(role_id)
 
-# Rota para o endpoint /redfish/v1/Chassis/, retorna informações sobre os chassis
+# Route for /redfish/v1/Chassis/, returns information about chassis
 @app.route('/redfish/v1/Chassis', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("ChassisCollection")
 def get_chassis():
     """
-    Rota para o endpoint /redfish/v1/Chassis/.
+    Route for /redfish/v1/Chassis/ endpoint.
 
-    Retorna informações sobre todos os chassis disponíveis no sistema.
+    Returns information about all available chassis in the system.
 
     Returns:
-        flask.Response: JSON com a coleção de chassis no formato Redfish.
+        flask.Response: JSON with chassis collection in Redfish format.
     """
     return chassis.get_chassis()
 
-# Carrega o AssetTag ao iniciar o servidor
+# Load AssetTag when starting the server
 readings.load_asset_tag()
 
-# Rota para o endpoint /redfish/v1/Chassis/<machine_id>, permite GET e PATCH
+# Route for /redfish/v1/Chassis/<machine_id> endpoint, allows GET and PATCH methods
 @app.route('/redfish/v1/Chassis/<system_id>', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("Chassis")
 def get_chassis_id(system_id):
-    """
-    Rota para o endpoint /redfish/v1/Chassis/<machine_id>.
-
-    Permite obter (GET) ou atualizar (PATCH) informações detalhadas do chassi identificado pelo machine_id.
-
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>.
+    
+    Allow GET to retrieve or PATCH to update detailed chassis information identified by machine_id.
+    
     Returns:
         flask.Response:
-            - GET: Retorna informações detalhadas do chassi.
-            - PATCH: Atualiza o AssetTag do chassi e retorna mensagem de sucesso ou erro.
+            - GET: Returns detailed chassis information.
+            - PATCH: Updates chassis AssetTag and returns success or error message.
     """
     if request.method == 'GET':
         return chassis.get_chassis_id()
     elif request.method == 'PATCH':
         data = request.get_json()
         if "AssetTag" in data:
-            readings.set_asset_tag(data["AssetTag"]) # Atualiza o AssetTag
+            readings.set_asset_tag(data["AssetTag"]) # Update AssetTag
             return jsonify({
-                "Message": "AssetTag atualizado com sucesso!",
+                "Message": "AssetTag updated successfully!",
                 "AssetTag": data["AssetTag"]
             }), 200
         else:
-            return jsonify({"Message": "Campo AssetTag não fornecido"}), 400
+            return jsonify({"Message": "AssetTag field not provided"}), 400
 
-# Rota para o endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem, retorna informações térmicas
+# Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem endpoint, returns thermal information
 @app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ThermalSubsystem")
 def get_chassis_id_thermalSubsystem(system_id):
-    """
-    Rota para o endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem.
-
-    Retorna informações do subsistema térmico do chassi.
-
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem.
+    
+    Returns thermal subsystem information for the chassis.
+    
     Returns:
-        flask.Response: JSON com informações do subsistema térmico.
+        flask.Response: JSON with thermal subsystem information.
     """
     return chassis.get_thermalSubsystem()
 
-# Rota para o endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics, permite GET e PATCH
+# Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics endpoint, allows GET and PATCH methods
 @app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem/ThermalMetrics', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ThermalMetrics")
 def get_chassis_id_thermalMetrics(system_id):
-    """
-    Rota para o endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics.
-
-    Retorna as métricas térmicas do chassi.
-
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics.
+    
+    Returns thermal metrics for the chassis.
+    
     Returns:
-        flask.Response: JSON com as métricas térmicas do chassi.
+        flask.Response: JSON with chassis thermal metrics.
     """
     return chassis.get_thermalMetrics()
 
-# Rota para o endpoint /redfish/v1/Chassis/<machine_id>/PowerSubSystem, retorna informações de energia
+# Route for /redfish/v1/Chassis/<machine_id>/PowerSubsystem endpoint, returns power information
 @app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("PowerSubsystem")
 def get_chassis_id_powerSubsystem(system_id):
-    """
-    Rota para o endpoint /redfish/v1/Chassis/<machine_id>/PowerSubsystem.
-
-    Retorna informações do subsistema de energia do chassi.
-
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>/PowerSubsystem.
+    
+    Returns power subsystem information for the chassis.
+    
     Returns:
-        flask.Response: JSON com informações do subsistema de energia.
+        flask.Response: JSON with power subsystem information.
     """
     return chassis.get_powerSubsystem()
 
-# Rota para o endpoint /redfish/v1/Chassis/<machine_id>/Sensors, retorna informações de sensores
+# Route for /redfish/v1/Chassis/<machine_id>/Sensors endpoint, returns sensor information
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("Sensor")
 def get_chassis_id_sensors(system_id):
-    """
-    Rota para o endpoint /redfish/v1/Chassis/<machine_id>/Sensors.
-
-    Retorna informações dos sensores do chassi.
-
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>/Sensors.
+    
+    Returns sensor information for the chassis.
+    
     Returns:
-        flask.Response: JSON com leituras dos sensores do chassi.
+        flask.Response: JSON with readings from chassis sensors.
     """
     return chassis.get_sensors()
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Rota para o endpoint /redfish/v1/JsonSchemas/
-# Retorna uma lista de esquemas JSON disponíveis para a API
+# Route for /redfish/v1/JsonSchemas/ endpoint
+# Returns a list of JSON schemas available for the API
 @app.route('/redfish/v1/JsonSchemas', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("JsonSchemaFileCollection")
 def get_json_schema_file():
-    """Rota para o endpoint /redfish/v1/JsonSchemas/
+    """Route for /redfish/v1/JsonSchemas/ endpoint.
     
     Returns:
-        return: Retorna uma lista de esquemas JSON disponiveis para a API
+        return: Returns a list of JSON schemas available for the API.
     """
     return jsonschemas.get_json_schemas()
 
-# Rota para o endpoint /redfish/v1/JsonSchemas/Chassis.v1_26_0
-# Retorna o esquema JSON específico para o chassis na versão 1.26.0
+# Route for /redfish/v1/JsonSchemas/Chassis.v1_26_0 endpoint
+# Returns the specific JSON schema for chassis version 1.26.0
 @app.route('/redfish/v1/JsonSchemas/Chassis.v1_26_0', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("JsonSchemaFile")
 def get_json_schema_chassis():
-    """ Rota para o endpoint /redfish/v1/JsonSchemas/Chassis.v1_26_0
+    """Route for /redfish/v1/JsonSchemas/Chassis.v1_26_0 endpoint.
 
     Returns:
-        return: Retorna o esquema JSON especifico para o chassis na versao 1.26.0
+        return: Returns the specific JSON schema for chassis version 1.26.0.
     """
     return jsonschemas.get_chassis_schemas()
 
-# Rota para o endpoint /redfish/v1/Systems/
-# Retorna informações sobre os sistemas computacionais disponíveis
+# Route for /redfish/v1/Systems/ endpoint
+# Returns information about available computer systems
 @app.route('/redfish/v1/Systems', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystemCollection")
 def get_computer():
-    """ Rota para o endpoint /redfish/v1/Systems/, permite o metodo GET
-
+    """Route for endpoint /redfish/v1/Systems/, allows GET method.
+    
     Returns:
-        return: Retorna informacoes sobre os systemas computacionais disponiveis
+        Information about available computer systems.
     """
     return computersystem.get_computer()
 
-# Rota para o endpoint /redfish/v1/Systems/<machine_id>/Actions/ComputerSystem.Reset
-# Permite reiniciar o sistema computacional identificado pelo machine_id
+# Route for /redfish/v1/Systems/<machine_id>/Actions/ComputerSystem.Reset endpoint
+# Allow restarting the computer system identified by machine_id
 @app.route('/redfish/v1/Systems/<system_id>/Actions/ComputerSystem.Reset', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def reset_system(system_id):
-    """ Rota para o endpoint /redfish/v1/Systems/<machine_id>/Actions/ComputerSystem.Reset
-
+    """Route for endpoint /redfish/v1/Systems/<machine_id>/Actions/ComputerSystem.Reset.
+    
     Returns:
-        return: Permite reiniciar o sistema computacional identificado pelo machine_id
+        Allow restarting the computer system identified by machine_id.
     """
     add_event_log_entry(
         system_id=system_id,
@@ -565,101 +560,102 @@ def reset_system(system_id):
     )
     return computersystem.reset_computer(system_id)
 
-# Rota para o endpoint /redfish/v1/Systems/<machine_id>
-# Retorna informações detalhadas sobre o sistema computacional identificado pelo machine_id
+# Route for /redfish/v1/Systems/<machine_id> endpoint
+# Returns detailed information about the computer system identified by machine_id
 @app.route('/redfish/v1/Systems/<system_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def get_computer_id(system_id):
-    """ Rota para o endpoint /redfish/v1/Systems/<machine_id>
-
+    """Route for endpoint /redfish/v1/Systems/<machine_id>.
+    
     Returns:
-        return: Retorna informacoes detalhadas sobre o sistema computacional identificado pelo machine_id
+        Detailed information about the computer system identified by machine_id.
     """
     return computersystem.get_computer_system()
 
-# Rota para o endpoint /redfish/v1/Systems/<machine_id>/Processors
-# Retorna informações sobre os processadores do sistema computacional
+# Route for /redfish/v1/Systems/<machine_id>/Processors endpoint
+# Returns information about the computer system processors
 @app.route('/redfish/v1/Systems/<system_id>/Processors', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ProcessorCollection")
 def get_systems_id_processors(system_id):
-    """ Rota para o endpoint /redfish/v1/System/<machine_id>/Processors, permite o metodo GET
-
+    """Route for endpoint /redfish/v1/System/<machine_id>/Processors, allows GET method.
+    
     Returns:
-        return: Retorna informacoes sobre os processadores do sistema computacional
+        Information about the computer system processors.
     """
     return computersystem.get_systems_id_processors()
 
-# Rota para o endpoint /redfish/v1/Systems/<machine_id>/Processors/CPU1
-# Retorna informações detalhadas sobre o processador CPU1 do sistema computacional
+# Route for /redfish/v1/Systems/<machine_id>/Processors/CPU1 endpoint
+# Returns detailed information about the CPU1 processor of the computer system
 @app.route('/redfish/v1/Systems/<system_id>/Processors/CPU1', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("Processor")
 def get_systems_id_processors_cpu1(system_id):
-    """ Rota para o endpoint /redfish/v1/Systems/<machine_id>/Processors/CPU1, permite o metodo GET
-
+    """Route for endpoint /redfish/v1/Systems/<machine_id>/Processors/CPU1, allows GET method.
+    
     Returns:
-        return: Retorna informacoes detalhadas sobre o processador CPU1 do sistema computacional
+        Detailed information about the CPU1 processor of the computer system.
     """
     return computersystem.get_systems_id_processors_cpu1()
 
-# Rota para o endpoint /redfish/v1/Systems/<machine_id>/SimpleStorage
-# Retorna informações sobre os dispositivos de armazenamento simples do sistema
+# Route for /redfish/v1/Systems/<machine_id>/SimpleStorage
+# Returns information about simple storage devices of the system
 @app.route('/redfish/v1/Systems/<system_id>/SimpleStorage', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("SimpleStorageCollection")
 def get_systems_id_simpleStorage(system_id):
-    """ Rota para o endpoint /redfish/v1/System/<machine_id>/SimpleStorage, permite o metodo GET
-
+    """Route for endpoint /redfish/v1/System/<machine_id>/SimpleStorage, allows GET method.
+    
     Returns:
-        return: Retorna informacoes sobre os dispositivos de armazenamento simples do sistema
+        Information about simple storage devices of the system.
     """
     return computersystem.get_systems_id_simpleStorage()
 
 
-storage_functions = computersystem.dynamic_storage_funcs() # Obtém funções dinâmicas de armazenamento
+storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
 
-for func in storage_functions: # Itera sobre as funções de armazenamento
-    # Registra cada função como uma rota no Flask
-    # O nome da função é usado para criar a rota, removendo o prefixo 'storage_'
-    # O método HTTP é definido como GET
+for func in storage_functions: # Iterate over storage functions
+    # Register each function as a Flask route
+    # The function name is used to create the route, removing the 'storage_' prefix
+    # The HTTP method is set to GET
     route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
-    # Encadeia manualmente os decoradores
+    # Manually chain decorators
     protected_func = requires_privilege("SimpleStorage")(
                         requires_authentication(func)
                     )
     decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
     app.route(route, methods=['GET'])(decorated_func)
 
-# Rota para obter informações do sistema operacional
+# Route to retrieve operating system information
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem', methods=['GET'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def get_operating_system(system_id):
-    """ Rota para obter informacoes do sistema operacional, permite o metodo GET
+    """Route to get operating system information, allows GET method.
+    
     Returns:
-        return: Retorna um JSON referente ao endpoint /redfish/v1/$metadata#OperatingSystem.OperatingSystem
+        JSON response matching /redfish/v1/$metadata#OperatingSystem.OperatingSystem endpoint.
     """
     return operatingsystem.get_operating_system()
 
 
-# Permite obter e atualizar métricas do sistema operacional
+# Allow retrieving and updating operating system metrics
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/OperatingSystemMetrics', methods=['GET', 'PATCH'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def operating_system_metrics(system_id):
-    """ Permite obter e atualizar metricas do sistema operacional, permite GET e PATCH
-
+    """Allow retrieving and updating operating system metrics. Supports GET and PATCH methods.
+    
     Returns:
-        return: Retorna um JSON referente ao endpoint /redfish/v1/$metadata#OperatingSystemMetrics.OperatingSystemMetrics
-        return: Atualiza o valor de ServiceEnabled em qualquer categoria.
+        GET: JSON response matching /redfish/v1/$metadata#OperatingSystemMetrics.OperatingSystemMetrics
+        PATCH: Updates ServiceEnabled value across categories.
     """
     if request.method == 'GET':
         return operatingsystem.get_operating_system_metrics()
@@ -667,170 +663,171 @@ def operating_system_metrics(system_id):
         data = request.json
         return operatingsystem.update_service_enabled(data)
 
-# Permite obter informações sobre os containers do sistema operacional
+# Allow retrieving information about operating system containers
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/Containers', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def containers_collection(system_id):
-    """ Permite obter informacoes sobre os containers do sistema operacional, permite o metodo GET
+    """Allow retrieving operating system containers information. Allows GET method.
     
     Args: 
-        system_id: Recebe como parametro o UUID do dispositivo.
+        system_id: System UUID parameter.
     Returns:
-        return: Retorna a coleção de containers em execução
+        Collection of running containers.
     """
     return container.get_containers(system_id)
 
-# Permite obter informações detalhadas sobre um container específico
+# Allow retrieving detailed information about a specific container
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/Containers/<container_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def container_detail(system_id, container_id):
-    """ Permite obter informacoes detalhadas sobre um container especifico, permite o metodo GET
-
+    """Allow retrieving specific container details. Allows GET method.
+    
     Args:
-        system_id: UUID do dispositivo
-        container_id: id do container existente no dispositivo
+        system_id: System UUID
+        container_id: ID of the container in the device
     Returns:
-        return: Retorna detalhes de um container específico
+        Details of a specific container.
     """
     return container.get_container(system_id, container_id)
 
-# Permite reiniciar um container específico
+# Allow restarting a specific container
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/Containers/<container_id>/Actions/Container.Reset', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def reset_container(system_id, container_id):
-    """ Permite reiniciar um container especifico, permite o metodo POST
-
+    """Allow restarting a specific container. Allows POST method.
+    
     Args:
-        container_id: id do container existente no dispositivo
+        container_id: ID of the container in the device.
     Returns:
-        return: Reinicia um container
+        Restarts a container.
     """
     return container.reset_container(container_id)
 
-# Permite iniciar um container específico
+# Allow starting a specific container
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/Containers/<container_id>/Actions/Container.Start', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def start_container(system_id, container_id):
-    """ Permite iniciar um container especifico, permite o metodo POST
-
+    """Allow starting a specific container. Allows POST method.
+    
     Args:
-        container_id: id do container existente no dispositivo
+        container_id: ID of the container in the device.
     Returns:
-        return: Inicia um container
+        Starts a container.
     """
     return container.start_container(container_id)
 
-# Permite parar um container específico
+# Allow stopping a specific container
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem/Containers/<container_id>/Actions/Container.Stop', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def stop_container(system_id, container_id):
-    """ Permite parar um container especifico, permite o metodo POST
-
+    """Allow stopping a specific container. Allows POST method.
+    
     Args:
-        container_id: id do container existente no dispositivo
+        container_id: ID of the container in the device.
     Returns:
-        return: Para um container
+        Stops a container.
     """
     return container.stop_container(container_id)
 
-# Permite obter informações sobre os logs do sistema
+# Allow retrieving system log information
 @app.route('/redfish/v1/Systems/<system_id>/LogServices', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                     # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("LogServiceCollection")
 def log_services_collection(system_id):
-    """ Permite obter informacoes sobre os logs do sistema
-
+    """Allow retrieving system log information.
+    
     Args:
-        system_id: UUID do dispositivo
+        system_id: System UUID.
     Returns:
-        return: Retorna a coleção de serviços de log disponíveis para um sistema específico
+        Collection of log services available for a specific system.
     """
     return logservice.get_log_services_collection(system_id)
 
-# Permite obter informações detalhadas sobre um log específico
+# Allow retrieving detailed information about a specific log
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/<log_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def log_service_detail(system_id, log_id):
-    """ Permite obter informacoes detalhadas sobre um log especifico
-
+    """Allow retrieving detailed information about a specific log.
+    
     Args:
-        system_id: UUID do dispositivo
-        log_id: id unico do log a ser detalhado
+        system_id: System UUID.
+        log_id: Unique log ID to be detailed.
     Returns:
-        return: Retorna um serviço de log específico
+        A specific log service.
     """
     return logservice.get_log_service_detail(system_id, log_id)
 
-# Permite obter informações sobre as entradas de log de um log específico
+# Allow retrieving log entry information for a specific log
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/Log1/Entries', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def log_entries(system_id):
-    """ Permite obter informacoes sobre as entradas de log de um log especifico.
-
+    """Allow retrieving log entry information for a specific log.
+    
     Args:
-        system_id: UUID do dispositivo
+        system_id: System UUID.
     Returns:
-        return: Retorna a coleção de Log Entries para um Log específico.
+        Collection of Log Entries for a specific Log.
     """
     return logservice.get_log_entries(system_id, "Log1")
 
-# Permite obter informações detalhadas sobre uma entrada de log específica
+# Allow retrieving detailed information about a specific log entry
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/Log1/Entries/<event_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("LogEntry")
 def log_entry_detail(system_id, event_id):
-    """ Permite obter informacoes detalhadas sobre uma entrada de log especifica
-
+    """Allow retrieving detailed information about a specific log entry.
+    
     Args:
-        system_id: UUID do dispositivo
-        event_id: id unico do evento
+        system_id: System UUID.
+        event_id: Unique event ID.
     Returns:
-        return: Retorna um LogEntry específico
+        A specific LogEntry.
     """
     return logservice.get_log_entry_by_id(system_id, "Log1", event_id)
 
-# Permite criar uma nova entrada de log em um log específico
+# Allow creating a new log entry in a specific log
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/<logservice_id>/Entries', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def create_log_entry(system_id, logservice_id):
-    """ Permite criar uma nova entrada de log em um log especifico, permite o metodo POST
-    Cria um novo LogEntry no LogService
+    """Allow creating a new log entry in a specific log. Allows POST method.
+    
+    Creates a new LogEntry in the LogService.
     
     Args:
-        system_id: UUID do dispositivo
-        logservice_id: id unico para logservice
+        system_id: System UUID.
+        logservice_id: Unique ID for logservice.
     Returns:
-        return: Adiciona um novo LogEntry
+        Adds a new LogEntry.
     """
     try:
         data = request.get_json()
         username = data.get("UserName")
 
-        required_fields = ["EntryType", "Severity", "Message", "MessageId"] # Campos obrigatórios
-        # Verifica se os campos obrigatórios estão presentes
+        required_fields = ["EntryType", "Severity", "Message", "MessageId"] # Required fields
+        # Verify if required fields are present
         for field in required_fields:
             if field not in data:
                 return jsonify({"error": f"Field '{field}' is required"}), 400
 
-        # Cria uma nova entrada de log
+        # Create new log entry
         new_entry = logservice.add_log_entry( 
             system_id=system_id,
             logservice_id=logservice_id,
@@ -1028,80 +1025,77 @@ def clear_log_action(system_id, log_id):
         return jsonify({"error": f"Failed to clear log: {str(e)}"}), 500
 
 
-# Rota para obter informações do DCN
+# Route to retrieve DCN information
 @app.route('/redfish/v1/DistributedControlNode', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ComputerSystem")
 def distributed_control_node_endpoint():
-    """ Rota para obter informacoes do DCN com uso do metodo GET, como o tipo de nó O-PAS, pode ser "DCN" ou outro
-        
+    """Route to retrieve DCN information using GET method. As an O-PAS node type, can be "DCN" or other.
+    
     Returns:
-        return: JSON com informacoes sobre o DCN.
+        JSON with information about the DCN.
     """
     return distributedcontrolnode.get_dcn()
 
-# Rota para obter interfaces Ethernet
+# Route to retrieve Ethernet interfaces
 @app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces', methods=['GET'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterfaceCollection")
 def get_computersystem_id_ethernetInterfaces():
-    """ Rota para obter interfaces Ethernet
-
+    """Route to retrieve Ethernet interfaces.
+    
     Returns:
-        return: Retorna todas as interfaces dentro do JSON de EthernetInterfaces.
+        All interfaces in the EthernetInterfaces JSON.
     """
     return ethernetinterfaces.get_computersystem_id_ethernetInterfaces()
 
-# Rota para obter informações detalhadas de uma interface Ethernet específica
+# Route to retrieve detailed information of a specific Ethernet interface
 @app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces/<iface>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterface")
 def get_computersystem_id_ethernetInterfaces_iface(iface):
-    """
-    Permite obter informações detalhadas de uma interface Ethernet específica.
-
+    """Allow retrieving detailed information of a specific Ethernet interface.
+    
     Args:
-        iface (str): Nome da interface Ethernet.
-
+        iface (str): Ethernet interface name.
+    
     Returns:
-        response: Retorna o JSON detalhado da interface Ethernet solicitada.
-                  Retorna 404 se a interface não for encontrada.
+        Detailed JSON of the requested Ethernet interface.
+        Returns 404 if interface is not found.
     """
-    funcs = ethernetinterfaces.dynamic_eth_funcs() # Obtém funções dinâmicas de interfaces Ethernet
-    # Itera sobre as funções dinâmicas de interfaces Ethernet
-    # Se o nome da função corresponder ao parâmetro iface, chama a função
+    funcs = ethernetinterfaces.dynamic_eth_funcs() # Get dynamic Ethernet interface functions
+    # Iterate over dynamic Ethernet interface functions
+    # If function name matches iface parameter, call the function
     for func in funcs:
         if func.__name__ == iface:
             return func()
     abort(404)
 
-# Permite obter e atualizar informações do serviço de eventos
+# Allow retrieving and updating event service information
 @app.route('/redfish/v1/EventService', methods=['GET', 'PATCH'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EventService")
 def event_service():
-    """
-    Permite obter e atualizar informações do serviço de eventos.
-
+    """Allow retrieving and updating event service information.
+    
     Returns:
-        response: 
-            - GET: Retorna o JSON do serviço de eventos.
-            - PATCH: Atualiza configurações do serviço de eventos e retorna mensagem de sucesso ou erro.
+        GET: Event service JSON.
+        PATCH: Updates event service settings and returns success or error message.
     """
     if request.method == 'GET':
-        return Response( # Obtém o serviço de eventos
-            json.dumps(eventservice.get_event_service(), indent=2), # Formata o JSON
+        return Response( # Get event service
+            json.dumps(eventservice.get_event_service(), indent=2), # Format JSON
             mimetype='application/json'
         )
-    elif request.method == 'PATCH': # Atualiza o serviço de eventos
-        # Verifica se o serviço de eventos está habilitado
+    elif request.method == 'PATCH': # Update event service
+        # Verify if event service is enabled
         data = request.get_json()
         response = {}
-        # Atualiza os campos do serviço de eventos conforme os dados recebidos
+        # Update event service fields according to received data
         if "DeliveryRetryAttempts" in data:
             readings.set_delivery_retry_attempts(data["DeliveryRetryAttempts"])
             response["DeliveryRetryAttempts"] = data["DeliveryRetryAttempts"]
@@ -1116,161 +1110,147 @@ def event_service():
 
         if response:
             return jsonify({
-                "Message": "Configurações atualizadas com sucesso!",
+                "Message": "Settings updated successfully!",
                 **response
             }), 200
         else:
-            return jsonify({"Message": "Nenhum campo válido foi fornecido"}), 400
+            return jsonify({"Message": "No valid fields were provided"}), 400
 
-# Permite obter e criar assinaturas de eventos
+# Allow retrieving and creating event subscriptions
 @app.route('/redfish/v1/EventService/Subscriptions', methods=['GET', 'POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EventDestinationCollection")
 def event_subscriptions_collection():
-    """
-    Permite obter e criar assinaturas de eventos.
-
+    """Allow retrieving and creating event subscriptions.
+    
     Returns:
-        response:
-            - GET: Retorna todas as assinaturas de eventos.
-            - POST: Cria uma nova assinatura de evento.
+        GET: All event subscriptions.
+        POST: Creates a new event subscription.
     """
     if request.method == 'GET':
         return eventdestination.get_event_subscriptions()
     elif request.method == 'POST':
         return eventdestination.create_event_subscription()
 
-# Permite obter e excluir assinaturas de eventos
+# Allow retrieving and deleting event subscriptions
 @app.route('/redfish/v1/EventService/Subscriptions/<subscription_id>', methods=['GET', 'DELETE'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EventDestination")
 def event_subscription_detail(subscription_id):
-    """
-    Permite obter e excluir uma assinatura de evento específica.
-
+    """Allow retrieving and deleting a specific event subscription.
+    
     Args:
-        subscription_id (str): ID da assinatura de evento.
-
+        subscription_id (str): Event subscription ID.
+    
     Returns:
-        response:
-            - GET: Retorna detalhes da assinatura.
-            - DELETE: Exclui a assinatura.
+        GET: Subscription details.
+        DELETE: Deletes the subscription.
     """
     if request.method == 'GET':
         return eventdestination.get_event_subscription(subscription_id)
     elif request.method == 'DELETE':
         return eventdestination.delete_event_subscription(subscription_id)
 
-# Permite enviar um evento de teste
+# Allow submitting a test event
 @app.route('/redfish/v1/EventService/Actions/EventService.SubmitTestEvent', methods=['POST'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EventService")
 def submit_test_event():
-    """
-    Permite enviar um evento de teste para o serviço de eventos.
-
+    """Allow submitting a test event to the event service.
+    
     Returns:
-        response: Resultado do envio do evento de teste.
+        Result of test event submission.
     """
     return eventservice.submit_test_event()
 
-# Retorna informações sobre os gerenciadores disponíveis
+# Return information about available managers
 @app.route('/redfish/v1/Managers', methods=['GET'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ManagerCollection")
 def managers():
-    """
-    Retorna informações sobre os gerenciadores disponíveis.
-
+    """Return information about available managers.
+    
     Returns:
-        response: JSON com a lista de gerenciadores disponíveis.
+        JSON with list of available managers.
     """
     return manager.get_managers()
 
-# Permite obter e atualizar informações de um gerenciador específico
+# Allow retrieving and updating information of a specific manager
 @app.route('/redfish/v1/Managers/<manager_id>', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("Manager")
 def manager_details(manager_id):
-    """
-    Permite obter e atualizar informações de um gerenciador específico.
-
+    """Allow retrieving and updating information of a specific manager.
+    
     Args:
-        manager_id (str): ID do gerenciador.
-
+        manager_id (str): Manager ID.
+    
     Returns:
-        response: 
-            - GET: Retorna detalhes do gerenciador.
-            - PATCH: Atualiza informações do gerenciador.
+        GET: Manager details.
+        PATCH: Updates manager information.
     """
     if request.method == 'GET':
         return manager.get_manager_details(manager_id)
     elif request.method == 'PATCH':
         return manager.update_manager(manager_id)
 
-# Permite obter e atualizar informações do protocolo de rede de um gerenciador específico
+# Allow retrieving and updating network protocol information of a specific manager
 @app.route('/redfish/v1/Managers/<manager_id>/NetworkProtocol', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("ManagerNetworkProtocol")
 def network_protocol(manager_id):
-    """
-    Permite obter e atualizar informações do protocolo de rede de um gerenciador específico.
-
+    """Allow retrieving and updating network protocol information of a specific manager.
+    
     Args:
-        manager_id (str): ID do gerenciador.
-
+        manager_id (str): Manager ID.
+    
     Returns:
-        response: 
-            - GET: Retorna informações do protocolo de rede.
-            - PATCH: Atualiza informações do protocolo de rede.
+        GET: Network protocol information.
+        PATCH: Updates network protocol information.
     """
     if request.method == 'GET':
         return manager.get_manager_network_protocol()
     elif request.method == 'PATCH':
         return manager.update_network_protocol()
 
-# Permite obter e atualizar informações de contas de gerenciador
+# Allow retrieving and updating session service information
 @app.route('/redfish/v1/SessionService', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("SessionService")
 def session_service():
-    """
-    Permite obter e atualizar informações do serviço de sessão.
-
+    """Allow retrieving and updating session service information.
+    
     Returns:
-        response: 
-            - GET: Retorna informações do serviço de sessão.
-            - PATCH: Atualiza informações do serviço de sessão.
+        GET: Session service information.
+        PATCH: Updates session service information.
     """
     if request.method == 'GET':
         return sessionservice.get_session_service()
     elif request.method == 'PATCH':
         return sessionservice.update_session_service(request.json)
 
-# Permite obter e criar sessões
+# Allow retrieving and creating sessions
 @app.route('/redfish/v1/SessionService/Sessions', methods=['GET', 'POST', 'OPTIONS'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 def session_collection():
-    """
-    Permite obter e criar sessões.
-
+    """Allow retrieving and creating sessions.
+    
     Returns:
-        response: 
-            - GET: Retorna todas as sessões.
-            - POST: Cria uma nova sessão.
-            - OPTIONS: Responde a requisições CORS preflight.
+        GET: All sessions.
+        POST: Creates a new session.
+        OPTIONS: Responds to CORS preflight requests.
     """
-    session_service_state = sessionservice.load_session_service() # Carrega o estado do serviço de sessão
-    # Verifica se o serviço de sessão está habilitado
+    session_service_state = sessionservice.load_session_service() # Load session service state
+    # Verify if session service is enabled
 
-    # Trata requisição CORS preflight (OPTIONS)
+    # Handle CORS preflight request (OPTIONS)
     if request.method == 'OPTIONS':
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
@@ -1287,22 +1267,20 @@ def session_collection():
     elif request.method == 'POST':
         return session.create_session()
 
-# Permite obter e excluir uma sessão específica
+# Allow retrieving and deleting a specific session
 @app.route('/redfish/v1/SessionService/Sessions/<session_id>', methods=['GET', 'DELETE'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("Session")
 def session_detail(session_id):
-    """
-    Permite obter e excluir uma sessão específica.
-
+    """Allow retrieving and deleting a specific session.
+    
     Args:
-        session_id (str): ID da sessão.
-
+        session_id (str): Session ID.
+    
     Returns:
-        response: 
-            - GET: Retorna detalhes da sessão.
-            - DELETE: Exclui a sessão.
+        GET: Session details.
+        DELETE: Deletes the session.
     """
     session_service_state = sessionservice.load_session_service()
 
@@ -1314,114 +1292,115 @@ def session_detail(session_id):
     elif request.method == 'DELETE':
         return session.delete_session(session_id)
 
-# Permite obter e atualizar informações do serviço de atualização
+# Allow retrieving and updating update service information
 @app.route('/redfish/v1/UpdateService', methods=['GET', 'PATCH'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("UpdateService")
 def update_service():
-    """
-    Permite obter e atualizar informações do serviço de atualização.
-
+    """Allow retrieving and updating update service information.
+    
     Returns:
-        response: 
-            - GET: Retorna informações do serviço de atualização.
-            - PATCH: Atualiza informações do serviço de atualização.
+        GET: Update service information.
+        PATCH: Updates update service information.
     """
     if request.method == 'GET':
         return updateservice.get_update_service()
     elif request.method == 'PATCH':
         return updateservice.update_update_service(request.json)
 
-# Permite realizar uma atualização simples
+# Allow performing a simple firmware update
 @app.route('/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate', methods=['POST'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("UpdateService")
 def update_firmware():
-    """
-    Permite realizar uma atualização simples de firmware.
-
+    """Allow performing a simple firmware update.
+    
     Returns:
-        response: Resultado da atualização.
+        Update result.
     """
     return updateservice.simple_update()
 
-# Função para limpar sessões expiradas
-# Remove sessões cujo tempo de expiração já passou
+# Function to clear expired sessions
+# Removes sessions whose expiration time has passed
 def limpar_sessoes_expiradas():
-    """
-    Remove sessões expiradas do armazenamento de sessões.
-
-    Esta função percorre todas as sessões salvas, verifica se o tempo de expiração já passou
-    e remove as sessões expiradas. As sessões atualizadas são salvas novamente.
-
+    """Remove expired sessions from session storage.
+    
+    This function iterates through all saved sessions, checks if the expiration time has passed,
+    and removes expired sessions. Updated sessions are saved again.
+    
     Side Effects:
-        Remove sessões expiradas do arquivo de sessões e imprime no console as sessões removidas.
+        Removes expired sessions from sessions file and prints removed sessions to console.
     """
-    sessions = load_sessions() # Carrega as sessões
-    current_time = time.time() # Obtém o tempo atual
-    expired = [sid for sid, sess in sessions.items() if sess["ExpirationTime"] < current_time] # Filtra sessões expiradas
-    # Se houver sessões expiradas, remove-as e salva as sessões atualizadas
+    sessions = load_sessions() # Load sessions
+    current_time = time.time() # Get current time
+    expired = [sid for sid, sess in sessions.items() if sess["ExpirationTime"] < current_time] # Filter expired sessions
+    # If there are expired sessions, remove them and save updated sessions
     if expired:
-        print(f"Limpando sessões expiradas: {expired}")
+        print(f"Clearing expired sessions: {expired}")
         for sid in expired:
             del sessions[sid]
         save_sessions(sessions)
 
-# Função para iniciar o servidor Flask
-# Configura o agendador para limpar sessões expiradas a cada 2 minutos e inicia o servidor Flask com HTTPS
+# Function to initialize Flask server
+# Configures SSL certificates, starts Flask server and SSDP discovery process
 def iniciar_servidor_flask():
-    """
-    Inicia o servidor Flask com HTTPS e agenda a limpeza periódica de sessões expiradas.
-
-    - Limpa sessões expiradas antes de iniciar o servidor.
-    - Agenda a limpeza de sessões a cada 2 minutos usando APScheduler.
-    - Garante que o agendador será parado ao encerrar o programa.
-    - Inicia o servidor Flask com o contexto SSL configurado.
-
+    """Initialize Flask server with HTTPS and schedule periodic expired session cleanup.
+    
+    - Clears expired sessions before starting the server.
+    - Schedules session cleanup every 2 minutes using APScheduler.
+    - Ensures scheduler will stop when program terminates.
+    - Starts Flask server with configured SSL context.
+    
     Side Effects:
-        Inicia o servidor Flask e o agendador de tarefas em background.
+        Starts Flask server and background task scheduler.
     """
-    # Antes de iniciar o servidor, já limpa as sessões expiradas
+    # Clear expired sessions before starting the server
     limpar_sessoes_expiradas()
 
-    # Inicia o agendador para continuar limpando a cada 2 minutos
+    # Start scheduler to continue cleaning every 2 minutes
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=limpar_sessoes_expiradas, trigger="interval", seconds=120)
     scheduler.start()
 
-    # Garante que o scheduler será parado ao encerrar o programa
+    # Ensure scheduler will stop when program terminates
     atexit.register(lambda: scheduler.shutdown())
 
-    # Inicia o servidor Flask com HTTPS
+    # Start Flask server with HTTPS
     app.run(host=FLASK_IP, port=FLASK_PORT, ssl_context=(CERT_FILE, KEY_FILE))
     
 
-# Configuração de CORS para permitir requisições de um domínio específico
+# CORS configuration to allow requests from a specific domain
 @app.after_request
 def add_cors_headers(response):
-    """
-    Adiciona cabeçalhos CORS à resposta HTTP.
-
+    """Add CORS headers to HTTP response.
+    
     Args:
-        response: Objeto de resposta do Flask.
-
+        response: Flask response object.
+    
     Returns:
-        response: Objeto de resposta com cabeçalhos CORS adicionados.
+        Response object with CORS headers added.
     """
-    response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'  # ou '*', se estiver testando
+    response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'  # or '*' if testing
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
 def get_authenticated_username():
-    # Tenta obter pelo token de sessão
+    """Retrieve the authenticated username from session token or Basic auth header.
+    
+    Attempts to get username from session token first, then falls back to Basic Authorization.
+    
+    Returns:
+        str: Username if authenticated, 'anonymous' otherwise.
+    """
+    # Try to get from session token
     token = request.headers.get("X-Auth-Token")
     sessions = load_sessions()
     for sess in sessions.values():
         if sess.get("Token") == token:
             return sess.get("UserName")
-    # Tenta obter pelo Authorization Basic
+    # Try to get from Basic Authorization
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Basic "):
         import base64
@@ -1435,6 +1414,16 @@ def get_authenticated_username():
 
 @app.after_request
 def log_all_requests(response):
+    """Log all HTTP requests to audit log.
+    
+    Records successful and error requests with user information to audit log.
+    
+    Args:
+        response: Flask response object.
+    
+    Returns:
+        Flask response object (unchanged).
+    """
     try:
         username = get_authenticated_username()
         endpoint = request.path
@@ -1453,55 +1442,45 @@ def log_all_requests(response):
         pass
     return response 
 
-# Função para gerar certificados interativos
-# Solicita ao usuário o Common Name (CN) e gera os certificados necessários
-# O CN é usado para identificar o certificado e deve ser único
-# O certificado gerado é válido por 365 dias
-# O arquivo de extensão (domain.ext) é criado para incluir o SAN (Subject Alternative Name)
-# O SAN é usado para especificar os nomes alternativos do certificado
-# O certificado gerado é salvo como domainSAN.crt
-# O arquivo de chave privada é salvo como domain.key
-# O arquivo CSR (Certificate Signing Request) é salvo como domain.csr
-# O arquivo de extensão é salvo como domain.ext
-# O certificado gerado é assinado com a chave privada
+# Function to generate interactive SSL certificates
+# Requests the user for Common Name (CN) and generates necessary certificates
 def gerar_certificados_interativo():
-    """
-    Gera certificados SSL interativamente solicitando o Common Name (CN) ao usuário.
-
-    - Gera chave privada, CSR, arquivo de extensão e certificado com SAN.
-    - Salva os arquivos gerados no diretório atual.
-
+    """Generate SSL certificates interactively by requesting Common Name (CN) from user.
+    
+    - Generates private key, CSR, extension file and certificate with SAN.
+    - Saves generated files in current directory.
+    
     Side Effects:
-        Cria arquivos de certificado, chave privada, CSR e extensão no disco.
-        Imprime mensagens de status no console.
+        Creates certificate, private key, CSR and extension files on disk.
+        Prints status messages to console.
     """
-    cn = input("Digite o Common Name (CN) para o certificado: ").strip()
+    cn = input("Enter the Common Name (CN) for the certificate: ").strip()
 
     if not cn:
-        print(" CN não pode estar vazio.")
+        print(" CN cannot be empty.")
         return
 
-    # Criação de arquivos
+    # File creation
     key_file = "domain.key"
     csr_file = "domain.csr"
     ext_file = "domain.ext"
     cert_file = "domainSAN.crt"
 
-    print(" Gerando chave privada...")
+    print(" Generating private key...")
     subprocess.run(["openssl", "genrsa", "-out", key_file, "2048"], check=True)
 
-    print(" Gerando CSR...")
+    print(" Generating CSR...")
     subprocess.run([
         "openssl", "req", "-new", "-key", key_file,
         "-out", csr_file,
         "-subj", f"/CN={cn}"
     ], check=True)
 
-    print(" Criando arquivo domain.ext com SAN...")
+    print(" Creating domain.ext file with SAN...")
     with open(ext_file, "w") as f:
         f.write(f"subjectAltName=DNS:{cn}\n")
 
-    print(" Gerando certificado com SAN...")
+    print(" Generating certificate with SAN...")
     subprocess.run([
         "openssl", "x509", "-req", "-days", "365",
         "-in", csr_file,
@@ -1510,34 +1489,31 @@ def gerar_certificados_interativo():
         "-extfile", ext_file
     ], check=True)
 
-    print(" Certificado gerado com sucesso:", cert_file)
+    print(" Certificate generated successfully:", cert_file)
 
 
+#USE ssl_context = "adhoc" to test HTTPS locally without worrying about generating and configuring certificates
 
-#USAR ssl_context = "adhoc" para testar HTTPS localmente sem se preocupar em gerar e configurar certificados
-
-# Função principal
-# Configura certificados SSL, inicia o servidor Flask e o processo de descoberta SSDP
+# Main function
+# Configures SSL certificates, starts Flask server and SSDP discovery process
 if __name__ == '__main__': 
-    """
-    Bloco principal de inicialização do servidor RedfishPi.
-
+    """Main initialization block for RedfishPi server.
     
-    - Obtém o IP local da máquina.
-    - Verifica se os certificados SSL estão atualizados para o IP atual.
-      - Se não estiverem, gera novos certificados e registra no sistema.
-    - Inicia o servidor Flask em um processo separado, usando HTTPS.
-    - Inicia o processo de descoberta SSDP em paralelo para anunciar o serviço na rede.
-    - Aguarda o término dos processos Flask e SSDP.
-
+    - Gets machine's local IP address.
+    - Verifies if SSL certificates are up-to-date for the current IP.
+      - If not, generates new certificates and registers in system.
+    - Starts Flask server in a separate process using HTTPS.
+    - Starts SSDP discovery process in parallel to announce service on the network.
+    - Waits for Flask and SSDP processes to terminate.
+    
     Side Effects:
-        - Gera e registra certificados SSL se necessário.
-        - Inicia processos paralelos para o servidor Flask e descoberta SSDP.
-        - O servidor Flask ficará disponível no IP e porta configurados via HTTPS.
+        - Generates and registers SSL certificates if necessary.
+        - Starts parallel processes for Flask server and SSDP discovery.
+        - Flask server will be available on configured IP and port via HTTPS.
     """
-    # Inicia o servidor Flask em um processo separado 
+    # Start Flask server in a separate process
 
-    ip = obter_ip_local() # Obtém o IP local
+    ip = obter_ip_local() # Get local IP
     if not certificados_estao_atualizados(ip):
         gerar_certificados(ip)
         if os.getenv("REGISTER_CERT_IN_SYSTEM", "false").lower() == "true":
@@ -1545,16 +1521,12 @@ if __name__ == '__main__':
 
     ssdp_control.start_ssdp()
 
-    # Inicia o servidor Flask em um processo separado
-    # O processo Flask é iniciado com o IP e porta configurados
+    # Start Flask server in a separate process
+    # Flask process is started with configured IP and port
     processo_flask = Process(target=iniciar_servidor_flask) 
     processo_flask.start() 
 
-    # Inicia o processo de descoberta SSDP em um processo separado
-    # O processo SSDP é iniciado para descobrir dispositivos na rede
-    #processo_ssdp = Process(target=discovery_SSDP) 
-    #processo_ssdp.start() 
-    
-    # Aguarda o término dos processos
+    # Wait for processes to terminate
     processo_flask.join() 
-    #processo_ssdp.join()
+
+

@@ -10,12 +10,13 @@ import logging
 ACCOUNTS_FILE = "accounts.json"
 
 def senha_valida(password):
-    """
-    Verifica se a senha atende aos critérios de comprimento mínimo e máximo.
+    """Check if password meets minimum and maximum length criteria.
+    
     Args:
-        password (str): Senha a ser verificada.
+        password (str): Password to be checked.
+    
     Returns:
-        bool: True se a senha for válida, False caso contrário.
+        bool: True if password is valid, False otherwise.
     """
     min_len = account_service_state.get("MinPasswordLength", 8)
     max_len = account_service_state.get("MaxPasswordLength", 32)
@@ -23,7 +24,7 @@ def senha_valida(password):
         return False
     if not (min_len <= len(password) <= max_len):
         return False
-    # Complexidade: pelo menos 1 maiúscula, 1 minúscula, 1 número, 1 símbolo
+    # Complexity: at least 1 uppercase, 1 lowercase, 1 number, 1 symbol
     if not re.search(r"[A-Z]", password):
         return False
     if not re.search(r"[a-z]", password):
@@ -32,7 +33,7 @@ def senha_valida(password):
         return False
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return False
-    # Blacklist de senhas fracas
+    # Blacklist of weak passwords
     blacklist = ["admin", "123456", "password", "senha", "admin123"]
     if password.lower() in blacklist:
         return False
@@ -42,21 +43,20 @@ def senha_valida(password):
 
 
 
-# Função para gerar um hash de senha
+# Function to generate password hash
 def hash_password(password):
-    """
-    Gera um hash seguro para a senha fornecida.
-
+    """Generate secure hash for provided password.
+    
     Args:
-        password (str): Senha em texto puro.
-
+        password (str): Plain text password.
+    
     Returns:
-        str: Hash da senha.
+        str: Password hash.
     """
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode(), salt).decode()
 
-# Estado inicial - Contas baseadas no ManagerAccount
+# Default initial state - Accounts based on ManagerAccount
 default_accounts = {
     "1": {
         "Id": "1",
@@ -87,32 +87,30 @@ default_accounts = {
     }
 }
 
-# Função para carregar contas do JSON
+# Function to load accounts from JSON
 def load_accounts():
-    """
-    Carrega contas do arquivo JSON, se houver erro retorna as contas padrão.
-
+    """Load accounts from JSON file, if error return default accounts.
+    
     Returns:
-        dict: Dicionário de contas carregadas ou padrão.
+        dict: Dictionary of loaded or default accounts.
     """
-    """Carrega contas do arquivo JSON, se houver erro, retorna as contas padrão."""
+    """Load accounts from JSON file, if error, return default accounts."""
     if os.path.exists(ACCOUNTS_FILE):
         try:
             with open(ACCOUNTS_FILE, "r") as file:
                 return json.load(file)
         except json.JSONDecodeError:
-            print("Erro: Formato inválido em accounts.json. Usando contas padrão.")
+            print("Error: Invalid format in accounts.json. Using default accounts.")
         except Exception as e:
-            print(f"Erro inesperado: {e}. Usando contas padrão.")
+            print(f"Unexpected error: {e}. Using default accounts.")
     return default_accounts.copy()
 
-# Função para salvar contas no JSON
+# Function to save accounts to JSON
 def save_accounts(accounts):
-    """
-    Salva as contas no arquivo JSON.
-
+    """Save accounts to JSON file.
+    
     Args:
-        accounts (dict): Dicionário de contas a serem salvas.
+        accounts (dict): Dictionary of accounts to be saved.
     """
     with open(ACCOUNTS_FILE, "w") as file:
         json.dump(accounts, file, indent=4)
@@ -120,28 +118,26 @@ def save_accounts(accounts):
 accounts = load_accounts()
 
 def verify_password(hashed_password, user_password):
-    """
-    Verifica se a senha fornecida corresponde ao hash armazenado.
-
+    """Check if provided password matches stored hash.
+    
     Args:
-        hashed_password (str): Hash da senha armazenada.
-        user_password (str): Senha fornecida pelo usuário.
-
+        hashed_password (str): Hash of stored password.
+        user_password (str): Password provided by user.
+    
     Returns:
-        bool: True se a senha corresponder, False caso contrário.
+        bool: True if password matches, False otherwise.
     """
     return bcrypt.checkpw(user_password.encode(), hashed_password.encode())
 
 
 def get_account(account_id):
-    """
-    Retorna os detalhes de um ManagerAccount.
-
+    """Return details of a ManagerAccount.
+    
     Args:
-        account_id (str): ID da conta.
-
+        account_id (str): Account ID.
+    
     Returns:
-        flask.Response: JSON com os detalhes da conta ou erro 404 se não encontrada.
+        flask.Response: JSON with account details or 404 error if not found.
     """
     if account_id in accounts:
         account_data = accounts[account_id]
@@ -223,19 +219,18 @@ def create_account():
         }, 201
 
     except Exception as e:
-        logging.error(f"Erro ao criar conta: {e}")
+        logging.error(f"Error creating account: {e}")
         return {"error": f"Internal server error: {e}"}, 500
 
 
 
 
 def update_account(account_id):
-    """
-    Atualiza propriedades de um ManagerAccount.
-
+    """Update properties of a ManagerAccount.
+    
     Args:
-        account_id (str): ID da conta a ser atualizada.
-
+        account_id (str): ID of account to be updated.
+    
     Returns:
         tuple: (dict, status_code)
     """
@@ -247,18 +242,18 @@ def update_account(account_id):
         if not isinstance(data, dict):
             return {"error": "Invalid JSON payload"}, 400
 
-        # Verifica duplicidade de UserName
+        # Check for duplicate UserName
         if "UserName" in data:
             if any(acc["UserName"] == data["UserName"] and acc["Id"] != account_id for acc in accounts.values()):
                 return {"error": "UserName already exists"}, 400
             accounts[account_id]["UserName"] = data["UserName"]
 
-        # Atualiza campos booleanos permitidos
+        # Update allowed boolean fields
         for key in ["Enabled", "Locked", "PasswordChangeRequired"]:
             if key in data:
                 accounts[account_id][key] = data[key]
 
-        # Atualiza senha
+        # Update password
         if "Password" in data:
             if not senha_valida(data["Password"]):
                 return {
@@ -272,13 +267,12 @@ def update_account(account_id):
         return {"message": "Account updated successfully"}, 200
 
     except Exception as e:
-        print("Erro ao atualizar conta:", e)
+        print("Error updating account:", e)
         return {"error": f"Internal server error: {e}"}, 500
 
 
 def delete_account(account_id):
-    """
-    Remove um ManagerAccount.
+    """Remove a ManagerAccount.
     """
     try:
         if account_id not in accounts:
@@ -292,15 +286,14 @@ def delete_account(account_id):
         return {"message": "Account deleted successfully"}, 200
 
     except Exception as e:
-        print("Erro ao deletar conta:", e)
+        print("Error deleting account:", e)
         return {"error": f"Internal server error: {e}"}, 500
 
 def get_accounts():
-    """
-    Retorna a coleção de contas (ManagerAccount Collection).
-
+    """Return the collection of accounts (ManagerAccount Collection).
+    
     Returns:
-        flask.Response: JSON com a coleção de contas.
+        flask.Response: JSON with account collection.
     """
     response = {
         #"@odata.context": "/redfish/v1/$metadata#ManagerAccountCollection.ManagerAccountCollection",
@@ -313,9 +306,9 @@ def get_accounts():
     return jsonify(response)
 
 
-# Inicializa a lista de contas
+# Initialize account list
 accounts = load_accounts()
 
-# Se o arquivo não existia, salva o padrão com senhas criptografadas
+# If file didn't exist, save default with encrypted passwords
 if not os.path.exists(ACCOUNTS_FILE):
     save_accounts(accounts)

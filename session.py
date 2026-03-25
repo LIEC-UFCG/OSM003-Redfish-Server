@@ -13,46 +13,43 @@ import readings
 SESSIONS_FILE = "sessions.json"
 ACCOUNTS_FILE = "accounts.json"
 
-# Função para carregar sessões do JSON
+# Function to load sessions from JSON
 def load_sessions():
-    """
-    Carrega as sessões do arquivo JSON.
-
+    """Load sessions from JSON file.
+    
     Returns:
-        dict: Dicionário de sessões carregadas ou vazio se não houver sessões ou em caso de erro.
+        dict: Dictionary of loaded sessions or empty if no sessions or error occurred.
     """
     if os.path.exists(SESSIONS_FILE):
         try:
             with open(SESSIONS_FILE, "r") as file:
                 data = file.read().strip()
                 if not data:
-                    return {}  # Se o arquivo estiver vazio, retorna um dicionário vazio
+                    return {}  # If file is empty, return empty dictionary
                 return json.loads(data)
         except json.JSONDecodeError:
-            return {}  # Se o conteúdo for inválido, retorna um dicionário vazio
+            return {}  # If content is invalid, return empty dictionary
     return {}
 
-# Função para salvar sessões no JSON
+# Function to save sessions to JSON
 def save_sessions(sessions):
-    """
-    Salva as sessões no arquivo JSON.
-
+    """Save sessions to JSON file.
+    
     Args:
-        sessions (dict): Dicionário de sessões a serem salvas.
+        sessions (dict): Dictionary of sessions to be saved.
     """
     with open(SESSIONS_FILE, "w") as file:
         json.dump(sessions, file, indent=4)
 
-# Inicializa a lista de sessões
+# Initialize session list
 sessions = load_sessions()
 
-# Função para carregar contas de usuários do JSON
+# Function to load user accounts from JSON
 def load_accounts():
-    """
-    Carrega as contas de usuários do arquivo JSON.
-
+    """Load user accounts from JSON file.
+    
     Returns:
-        dict: Dicionário de contas carregadas ou vazio se não houver contas.
+        dict: Dictionary of loaded accounts or empty if no accounts.
     """
     if os.path.exists(ACCOUNTS_FILE):
         with open(ACCOUNTS_FILE, "r") as file:
@@ -64,24 +61,23 @@ accounts = load_accounts()
 
 
 def create_session():
-    """
-    Cria uma nova sessão autenticada para um usuário válido.
-
-    Valida o usuário e senha, impede múltiplas sessões simultâneas para o mesmo usuário,
-    gera um token seguro e salva a sessão.
-
+    """Create a new authenticated session for a valid user.
+    
+    Validates user and password, prevents multiple simultaneous sessions for same user,
+    generates a secure token and saves the session.
+    
     Returns:
-        flask.Response: Resposta com os dados da sessão criada, cabeçalho X-Auth-Token e status 201,
-                        ou erro 401/409 em caso de falha.
+        flask.Response: Response with session data, X-Auth-Token header and 201 status,
+                        or 401/409 errors on failure.
     """
     data = request.json
     username = data.get("UserName")
     password = data.get("Password")
 
-    # Verifica se o usuário existe e a senha é válida
+    # Check if user exists and password is valid
     user = next((acc for acc in accounts.values() if acc["UserName"] == username), None)
     
-    # Verifica se o usuário existe
+    # Check if user exists
     if not user:
         add_auth_log_entry(
             system_id=readings.machine_id(),
@@ -93,7 +89,7 @@ def create_session():
         )
         return make_response({"error": "Invalid username or password"}, 401)
 
-    # Verifica se a senha está correta
+    # Check if password is correct
     hash_salvo = user["Password"].encode() if isinstance(user["Password"], str) else user["Password"]
     senha_correta = bcrypt.checkpw(password.encode(), hash_salvo)
 
@@ -110,19 +106,19 @@ def create_session():
 
     sessions = load_sessions()
 
-    # Limpa sessões expiradas
+    # Clean expired sessions
     current_time = time.time()
     expired_sessions = [sid for sid, sess in sessions.items()
                         if sess.get("ExpirationTime", 0) < current_time]
     for sid in expired_sessions:
-        print(f"Removendo sessão expirada: {sid}")
+        print(f"Removing expired session: {sid}")
         del sessions[sid]
     save_sessions(sessions)
 
-    # Importante: recarrega sessões após limpeza
-    # (ou continua usando `sessions` limpo diretamente, como abaixo)
+    # Important: reload sessions after cleanup
+    # (or continue using cleaned `sessions` directly, as below)
 
-    # Verifica se o usuário já tem uma sessão ativa
+    # Check if user already has an active session
     for sid, sess in sessions.items():
         if sess["UserName"] == username:
             return make_response({
@@ -136,10 +132,10 @@ def create_session():
                 }
             }, 409)
 
-    # Gera um token seguro
+    # Generate a secure token
     token = secrets.token_hex(32)
     #session_id = str(len(sessions) + 1)
-    session_id = str(uuid4())  # Gera um UUID único para a sessão
+    session_id = str(uuid4())  # Generate unique UUID for session
 
     current_time = time.time()
     expiration_time = current_time + SESSION_TIMEOUT
@@ -181,11 +177,10 @@ def create_session():
 
 
 def get_sessions():
-    """
-    Retorna a coleção de sessões (Session Collection).
-
+    """Return the collection of sessions (Session Collection).
+    
     Returns:
-        flask.Response: JSON com a coleção de sessões ativas.
+        flask.Response: JSON with active sessions collection.
     """
     sessions = load_sessions()
     response = {
@@ -198,26 +193,25 @@ def get_sessions():
     return jsonify(response)
 
 def get_session(session_id):
-    """
-    Retorna os detalhes de uma sessão específica, se o token for válido.
-
+    """Return details of a specific session if token is valid.
+    
     Args:
-        session_id (str): ID da sessão.
-
+        session_id (str): Session ID.
+    
     Returns:
-        flask.Response: JSON com os detalhes da sessão ou erro 403/404.
+        flask.Response: JSON with session details or 403/404 error.
     """
-    sessions = load_sessions()  # Certifica-se de carregar as sessões mais recentes
+    sessions = load_sessions()  # Ensure to load most recent sessions
     
     if session_id not in sessions:
         return make_response({"error": "Session not found"}, 404)
 
     session_data = sessions.get(session_id)
 
-    # Recupera o token da requisição
+    # Retrieve token from request
     request_token = request.headers.get("X-Auth-Token")
 
-    # Garante que o token seja o mesmo da sessão solicitada
+    # Ensure token is same as session being requested
     if session_data["Token"] != request_token:
         return make_response({"error": "Access denied to this session"}, 403)
 
@@ -239,16 +233,15 @@ def get_session(session_id):
     return jsonify({"error": "Session not found."}), 404
 
 def delete_session(session_id):
-    """
-    Remove uma sessão, se o token do request for o dono da sessão.
-
+    """Remove a session if request token is the session owner.
+    
     Args:
-        session_id (str): ID da sessão a ser removida.
-
+        session_id (str): ID of session to be removed.
+    
     Returns:
-        flask.Response: Mensagem de sucesso ou erro 403/404.
+        flask.Response: Success message or 403/404 error.
     """
-    sessions = load_sessions()  # garante que estamos lendo do arquivo
+    sessions = load_sessions()  # ensure we're reading from file
     data = request.get_json(silent=True) or {}
     username = data.get("UserName", "")
     
@@ -258,7 +251,7 @@ def delete_session(session_id):
     session_data = sessions[session_id]
     request_token = request.headers.get("X-Auth-Token")
 
-    # Verifica se o token do request é o dono da sessão
+    # Check if request token is the session owner
     if session_data["Token"] != request_token:
         return jsonify({"error": "Access denied to delete this session"}), 403
 

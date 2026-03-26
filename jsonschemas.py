@@ -2,10 +2,10 @@ from flask import jsonify
 
 def get_json_schemas():
     """
-    Retorna a coleção de JSON Schemas disponíveis no serviço Redfish.
+    Returns the collection of available JSON Schemas in the Redfish service.
 
     Returns:
-        flask.Response: Resposta JSON com a coleção de schemas disponíveis, incluindo links para cada schema.
+        flask.Response: JSON response with the available schemas collection, including links for each schema.
     """
     schema_collection = {
         "@odata.context": "/redfish/v1/$metadata#JsonSchemaFile.JsonSchemaFile",
@@ -23,10 +23,10 @@ def get_json_schemas():
 
 def get_chassis_schemas():
     """
-    Retorna o JSON Schema específico do recurso Chassis.
+    Returns the specific JSON Schema for the Chassis resource.
 
     Returns:
-        flask.Response: Resposta JSON com o schema do Chassis, incluindo localização e metadados.
+        flask.Response: JSON response with Chassis schema, including location and metadata.
     """
     schema_chassis = {
         "@odata.type": "#JsonSchemaFile.v1_1_5.JsonSchemaFile",

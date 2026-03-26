@@ -267,7 +267,17 @@ def add_log_entry(system_id, logservice_id, entry_type, severity, message, messa
 MAX_LOG_ENTRIES = 1000
 
 def add_audit_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Audit.Action.Success"):
-    logs = []
+    """
+    Adds a new audit log entry.
+
+    Args:
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        message (str): Audit message.
+        user_name (str, optional): Name of the user performing the action.
+        severity (str, optional): Severity level. Defaults to "OK".
+        message_id (str, optional): Message identifier. Defaults to "Audit.Action.Success".
+    """
     if os.path.exists(AUDIT_LOG_FILE):
         try:
             with open(AUDIT_LOG_FILE, "r") as f:
@@ -302,7 +312,17 @@ def add_audit_log_entry(system_id, logservice_id, message, user_name=None, sever
 # changing only EntryType, destination file and default values of MessageId/Severity.
 
 def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Auth.Action.Success"):
-    logs = []
+    """
+    Adds a new authentication log entry.
+
+    Args:
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        message (str): Authentication message.
+        user_name (str, optional): Name of the user.
+        severity (str, optional): Severity level. Defaults to "OK".
+        message_id (str, optional): Message identifier. Defaults to "Auth.Action.Success".
+    """
     if os.path.exists(AUTH_LOG_FILE):
         try:
             with open(AUTH_LOG_FILE, "r") as f:
@@ -334,7 +354,17 @@ def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severi
         print(f"Error saving auth log: {e}")
 
 def add_event_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Event.Action.Success"):
-    logs = []
+    """
+    Adds a new event log entry.
+
+    Args:
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        message (str): Event message.
+        user_name (str, optional): Name of the user.
+        severity (str, optional): Severity level. Defaults to "OK".
+        message_id (str, optional): Message identifier. Defaults to "Event.Action.Success".
+    """
     if os.path.exists(EVENT_LOG_FILE):
         try:
             with open(EVENT_LOG_FILE, "r") as f:
@@ -366,7 +396,17 @@ def add_event_log_entry(system_id, logservice_id, message, user_name=None, sever
         print(f"Error saving event log: {e}")
 
 def add_error_log_entry(system_id, logservice_id, message, user_name=None, severity="Critical", message_id="Error.Action.Failed"):
-    logs = []
+    """
+    Adds a new error log entry.
+
+    Args:
+        system_id (str): System ID.
+        logservice_id (str): ID of the log service.
+        message (str): Error message.
+        user_name (str, optional): Name of the user.
+        severity (str, optional): Severity level. Defaults to "Critical".
+        message_id (str, optional): Message identifier. Defaults to "Error.Action.Failed".
+    """
     if os.path.exists(ERROR_LOG_FILE):
         try:
             with open(ERROR_LOG_FILE, "r") as f:

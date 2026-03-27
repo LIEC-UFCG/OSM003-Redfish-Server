@@ -157,9 +157,6 @@ def redfish():
         "v1": "/redfish/v1/"
     }, 200
 
-# Fetch Redfish root data
-redfish_data = redfish_root.get_redfish_v1()
-
 # Route for /redfish/v1/ endpoint, returns Redfish root data
 @app.route('/redfish/v1', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)
@@ -170,6 +167,7 @@ def get_redfish_root():
     Returns:
         flask.Response: Formatted JSON response with Redfish root data.
     """
+    redfish_data = redfish_root.get_redfish_v1()
     return Response(
         json.dumps(redfish_data, indent=2, ensure_ascii=False), # Format JSON
         mimetype='application/json'                             # Define content type as JSON
@@ -617,19 +615,20 @@ def get_systems_id_simpleStorage(system_id):
     return computersystem.get_systems_id_simpleStorage()
 
 
-storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
+if os.environ.get("SPHINX_BUILD") != "1":
+    storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
 
-for func in storage_functions: # Iterate over storage functions
-    # Register each function as a Flask route
-    # The function name is used to create the route, removing the 'storage_' prefix
-    # The HTTP method is set to GET
-    route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
-    # Manually chain decorators
-    protected_func = requires_privilege("SimpleStorage")(
-                        requires_authentication(func)
-                    )
-    decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
-    app.route(route, methods=['GET'])(decorated_func)
+    for func in storage_functions: # Iterate over storage functions
+        # Register each function as a Flask route
+        # The function name is used to create the route, removing the 'storage_' prefix
+        # The HTTP method is set to GET
+        route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
+        # Manually chain decorators
+        protected_func = requires_privilege("SimpleStorage")(
+                            requires_authentication(func)
+                        )
+        decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
+        app.route(route, methods=['GET'])(decorated_func)
 
 # Route to retrieve operating system information
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem', methods=['GET'], strict_slashes=False) 

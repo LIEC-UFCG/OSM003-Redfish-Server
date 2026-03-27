@@ -52,8 +52,13 @@ def load_accounts():
         dict: Dictionary of loaded accounts or empty if no accounts.
     """
     if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "r") as file:
-            return json.load(file)
+        try:
+            with open(ACCOUNTS_FILE, "r") as file:
+                return json.load(file)
+        except json.JSONDecodeError:
+            return {}
+        except Exception:
+            return {}
     return {}
 
 accounts = load_accounts()

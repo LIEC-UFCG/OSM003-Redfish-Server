@@ -1,10 +1,8 @@
 import json
 import os
 from flask import jsonify, request, make_response
-import readings
 
 SESSION_SERVICE_FILE = "session_service.json"
-system_id = readings.machine_id()
 
 # Default initial state of SessionService
 default_service_state = {

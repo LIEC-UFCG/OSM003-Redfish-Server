@@ -59,10 +59,28 @@ def machine_id():
     Returns:
         str: Device Machine ID.
     """
-    hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
-    machine_id_num = check_output(["grep", "Machine ID"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
-    id_num = machine_id_num.split()[2]
-    return id_num
+    # Linux path: prefer hostnamectl output when available.
+    try:
+        hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
+        machine_id_num = check_output(["grep", "Machine ID"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
+        id_num = machine_id_num.split()[2]
+        if id_num:
+            return id_num
+    except Exception:
+        pass
+
+    # Portable fallback: try /etc/machine-id.
+    try:
+        if os.path.exists('/etc/machine-id'):
+            with open('/etc/machine-id', 'r', encoding='utf-8') as f:
+                value = f.read().strip()
+                if value:
+                    return value
+    except Exception:
+        pass
+
+    # Last-resort fallback for Windows/dev environments.
+    return platform.node() or "UNKNOWN_MACHINE_ID"
 
 
 def boot_id():

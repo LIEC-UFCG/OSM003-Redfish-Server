@@ -323,5 +323,5 @@ def get_accounts():
 accounts = load_accounts()
 
 # If file didn't exist, save default with encrypted passwords
-if not os.path.exists(ACCOUNTS_FILE):
+if os.environ.get("SPHINX_BUILD") != "1" and not os.path.exists(ACCOUNTS_FILE):
     save_accounts(accounts)

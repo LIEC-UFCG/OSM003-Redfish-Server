@@ -2,12 +2,15 @@ import readings
 
 def get_redfish_v1():
     """
-    Retorna o ServiceRoot do Redfish v1 no formato Redfish.
+    Returns the Redfish v1 ServiceRoot in Redfish format.
 
-    O ServiceRoot é o ponto de entrada principal da API Redfish, fornecendo links para os principais recursos do serviço.
+    The ServiceRoot is the main entry point of the Redfish API,
+    providing links to the service's primary resources.
 
     Returns:
-        dict: Dicionário com os dados do ServiceRoot, incluindo links para AccountService, Chassis, Systems, Managers, SessionService, EventService, JsonSchemas e UpdateService.
+        dict: Dictionary with ServiceRoot data, including links to
+        AccountService, Chassis, Systems, Managers, SessionService,
+        EventService, JsonSchemas, and UpdateService.
     """
     redfish_v1 = {
         "@odata.context": "/redfish/v1/$metadata#ServiceRoot.ServiceRoot",
@@ -53,7 +56,7 @@ def get_redfish_v1():
         "Systems":{                                          
             "@odata.id": "/redfish/v1/Systems"
         },
-        "UpdateService": {                                          # REVISAR
+        "UpdateService": {                                          # REVIEW
             "@odata.id":  "/redfish/v1/UpdateService"
         }
     }

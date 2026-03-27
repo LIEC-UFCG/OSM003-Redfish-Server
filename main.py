@@ -878,28 +878,28 @@ def get_log_entry_by_eventid(log_file, system_id, log_type, event_id):
     return jsonify({"error": "Log entry not found"}), 404
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuditLog', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def audit_log_service_detail(system_id):
     return logservice.get_log_service_detail(system_id, "AuditLog")
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuthLog', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def auth_log_service_detail(system_id):
     return logservice.get_log_service_detail(system_id, "AuthLog")
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/EventLog', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def event_log_service_detail(system_id):
     return logservice.get_log_service_detail(system_id, "EventLog")
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/ErrorLog', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def error_log_service_detail(system_id):
@@ -907,7 +907,7 @@ def error_log_service_detail(system_id):
 
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuditLog/Entries', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def audit_log_entries(system_id):
@@ -922,7 +922,7 @@ def audit_log_entries(system_id):
     return jsonify(response)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuthLog/Entries', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def auth_log_entries(system_id):
@@ -937,7 +937,7 @@ def auth_log_entries(system_id):
     return jsonify(response)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/EventLog/Entries', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def event_log_entries(system_id):
@@ -952,7 +952,7 @@ def event_log_entries(system_id):
     return jsonify(response)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/ErrorLog/Entries', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntryCollection")
 def error_log_entries(system_id):
@@ -967,35 +967,35 @@ def error_log_entries(system_id):
     return jsonify(response)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuditLog/Entries/<event_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntry")
 def audit_log_entry_detail(system_id, event_id):
     return get_log_entry_by_eventid(AUDIT_LOG_FILE, system_id, "AuditLog", event_id)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/AuthLog/Entries/<event_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntry")
 def auth_log_entry_detail(system_id, event_id):
     return get_log_entry_by_eventid(AUTH_LOG_FILE, system_id, "AuthLog", event_id)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/EventLog/Entries/<event_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntry")
 def event_log_entry_detail(system_id, event_id):
     return get_log_entry_by_eventid(EVENT_LOG_FILE, system_id, "EventLog", event_id)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/ErrorLog/Entries/<event_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogEntry")
 def error_log_entry_detail(system_id, event_id):
     return get_log_entry_by_eventid(ERROR_LOG_FILE, system_id, "ErrorLog", event_id)
 
 @app.route('/redfish/v1/Systems/<system_id>/LogServices/<log_id>/Actions/LogService.ClearLog', methods=['POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limita a 1 requisição por segundo
+@conditional_limit(RATE_LIMIT)                      # Limits to 1 request per second
 @requires_authentication
 @requires_privilege("LogService")
 def clear_log_action(system_id, log_id):

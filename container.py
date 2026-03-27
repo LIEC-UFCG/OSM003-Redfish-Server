@@ -23,7 +23,7 @@ def get_containers(system_id):
             #"@odata.type": "#Container.v1_0_1.Container",
             #"Id": container.id,
             #"Members": [],  # Removido o link incorreto
-            #"Members@odata.count": 0  # Adicionado 0, já que não há membros para este nível
+            #"Members@odata.count": 0  # Added 0, since there are no members for this level
         }
         container_list.append(container_info)
 

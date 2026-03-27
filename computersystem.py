@@ -384,7 +384,7 @@ def get_systems_id_memory_dimm():
         "CapacityMiB": readings.memory_total(),
         "RankCount": get_memory_field(memory_info, "rank", default=1),  
 
-        # Status da memória (obrigatório)
+        # Memory status (mandatory)
         "Status": {
             "Health": readings.memory_health(),
             "State": "Enabled"

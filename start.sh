@@ -1,4 +1,4 @@
-# Instala dependências do sistema (offline)
+# Installs system dependencies (offline)
 sudo dpkg -i deps/*.deb
 
 ARCH=$(uname -m)

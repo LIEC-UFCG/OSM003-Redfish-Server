@@ -4,7 +4,7 @@ from flask import jsonify, request, make_response
 
 UPDATE_SERVICE_FILE = "update_service.json"
 
-# Estado inicial padrão do UpdateService
+# Default initial state of UpdateService
 default_update_service_state = {
     "ServiceEnabled": True,
     #"FirmwareInventory": "/redfish/v1/UpdateService/FirmwareInventory",
@@ -17,40 +17,40 @@ default_update_service_state = {
     }
 }
 
-# Carregar estado do UpdateService
+# Load UpdateService state
 def load_update_service():
     """
-    Carrega o estado do UpdateService do arquivo JSON.
+    Loads the UpdateService state from a JSON file.
 
     Returns:
-        dict: Dicionário com o estado do UpdateService carregado do arquivo ou o estado padrão se o arquivo não existir.
+        dict: Dictionary with UpdateService state loaded from file or default state if file doesn't exist.
     """
     if os.path.exists(UPDATE_SERVICE_FILE):
         with open(UPDATE_SERVICE_FILE, "r") as file:
             return json.load(file)
     return default_update_service_state.copy()
 
-# Salvar estado do UpdateService
+# Save UpdateService state
 def save_update_service(state):
     """
-    Salva o estado do UpdateService no arquivo JSON.
+    Saves the UpdateService state to a JSON file.
 
     Args:
-        state (dict): Dicionário com o estado do UpdateService a ser salvo.
+        state (dict): Dictionary with UpdateService state to be saved.
     """
     with open(UPDATE_SERVICE_FILE, "w") as file:
         json.dump(state, file, indent=4)
 
-# Inicializa o estado
+# Initialize state
 update_service_state = load_update_service()
 
 
 def get_update_service():
     """
-    Retorna os dados do UpdateService no formato Redfish.
+    Returns UpdateService data in Redfish format.
 
     Returns:
-        flask.Response: Resposta JSON com os dados do UpdateService.
+        flask.Response: JSON response with UpdateService data.
     """
     response = {
         "@odata.context": "/redfish/v1/$metadata#UpdateService.UpdateService",
@@ -80,13 +80,13 @@ def get_update_service():
 
 def update_update_service(data):
     """
-    Atualiza propriedades do UpdateService, como ServiceEnabled.
+    Updates UpdateService properties such as ServiceEnabled.
 
     Args:
-        data (dict): Dicionário com as propriedades a serem atualizadas.
+        data (dict): Dictionary with properties to be updated.
 
     Returns:
-        flask.Response: Mensagem de sucesso se atualizado ou erro 400 se propriedades inválidas.
+        flask.Response: Success message if updated or 400 error if invalid properties.
     """
     updated = False
 
@@ -103,12 +103,12 @@ def update_update_service(data):
 
 def simple_update():
     """
-    Realiza a atualização de firmware/software via SimpleUpdate.
+    Performs a firmware/software update via SimpleUpdate.
 
-    Valida se o serviço está habilitado e se o campo ImageURI está presente na requisição.
+    Validates if the service is enabled and if the ImageURI field is present in the request.
 
     Returns:
-        flask.Response: Mensagem de aceite da atualização ou erro 400/403.
+        flask.Response: Update acceptance message or 400/403 error.
     """
     if not update_service_state["ServiceEnabled"]:
         return make_response({"error": "UpdateService is disabled."}, 403)
@@ -117,5 +117,5 @@ def simple_update():
     if "ImageURI" not in data:
         return make_response({"error": "ImageURI is required."}, 400)
 
-    # Simula um processo de atualização
+    # Simulates an update process
     return make_response({"message": f"Firmware update initiated from {data['ImageURI']}"}, 202)

@@ -2,7 +2,6 @@ import bcrypt
 import json
 import os
 from flask import jsonify, request, make_response
-import bcrypt
 from accountservice import account_service_state
 import re
 import logging
@@ -94,7 +93,6 @@ def load_accounts():
     Returns:
         dict: Dictionary of loaded or default accounts.
     """
-    """Load accounts from JSON file, if error, return default accounts."""
     if os.path.exists(ACCOUNTS_FILE):
         try:
             with open(ACCOUNTS_FILE, "r") as file:
@@ -163,41 +161,56 @@ def get_account(account_id):
     return make_response({"error": "Account not found"}, 404)
 
 def create_account():
+    """
+    Creates a new ManagerAccount.
+
+    Reads account data from the request payload, validates required fields,
+    enforces password policy, checks for duplicate usernames, and persists
+    the new account to storage.
+
+    Returns:
+        tuple: A tuple containing the response body (dict) and HTTP status code.
+               - 201 on successful creation.
+               - 400 for validation errors.
+               - 500 for unexpected internal errors.
+    """
     try:
         global accounts
 
         accounts = load_accounts()
-        data = request.json
-        username = data.get("UserName")  # 🔹 Define o nome de usuário antes de tudo
+        data = request.json or {}
+        if not isinstance(data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+        username = data.get("UserName")  # 🔹 Defines the username before everything
 
         if not username or "RoleId" not in data or "Password" not in data:
             return {"error": "Missing required fields (UserName, RoleId, Password)"}, 400
 
-        # Validação de senha
+        # Password validation
         if not senha_valida(data["Password"]):
             return {
                 "error": f"Password must be between {account_service_state['MinPasswordLength']} and {account_service_state['MaxPasswordLength']} characters."
             }, 400
 
-        # 🔍 Logs de depuração
+        # 🔍 Debug logs
         logging.debug(f"Existing accounts: {[a['UserName'] for a in accounts.values()]}")
         logging.debug(f"Requested username: {username}")
 
-        # Verifica duplicidade de nome de usuário
+        # Checks for duplicate username
         if any(acc["UserName"].lower() == username.lower() for acc in accounts.values()):
-            logging.warning(f"Tentativa de criar usuário duplicado: {username}")
+            logging.warning(f"Attempt to create duplicate user: {username}")
             return {"error": "UserName already exists"}, 400
 
-        # Gera novo ID incremental
+        # Generates new incremental ID
         if accounts:
             new_id = str(max(map(int, accounts.keys())) + 1)
         else:
             new_id = "1"
 
-        # Criptografa a senha
+        # Hashes the password
         hashed_password = bcrypt.hashpw(data["Password"].encode(), bcrypt.gensalt()).decode()
 
-        # Cria o dicionário da nova conta
+        # Creates the new account dictionary
         new_account = {
             "Id": new_id,
             "UserName": username,
@@ -208,11 +221,11 @@ def create_account():
             "Password": hashed_password
         }
 
-        # Salva no banco local (ou arquivo)
+        # Saves to local storage (or file)
         accounts[new_id] = new_account
         save_accounts(accounts)
 
-        # Retorno padrão Redfish
+        # Redfish default return
         return {
             "@odata.id": f"/redfish/v1/AccountService/Accounts/{new_id}",
             "UserName": username
@@ -244,7 +257,7 @@ def update_account(account_id):
 
         # Check for duplicate UserName
         if "UserName" in data:
-            if any(acc["UserName"] == data["UserName"] and acc["Id"] != account_id for acc in accounts.values()):
+            if any(acc["UserName"].lower() == data["UserName"].lower() and acc["Id"] != account_id for acc in accounts.values()):
                 return {"error": "UserName already exists"}, 400
             accounts[account_id]["UserName"] = data["UserName"]
 
@@ -267,7 +280,7 @@ def update_account(account_id):
         return {"message": "Account updated successfully"}, 200
 
     except Exception as e:
-        print("Error updating account:", e)
+        logging.error(f"Error updating account: {e}")
         return {"error": f"Internal server error: {e}"}, 500
 
 

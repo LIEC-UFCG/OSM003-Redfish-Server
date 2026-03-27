@@ -6,10 +6,10 @@ from readings import cpu_model, system_uuid
 
 def get_local_ip():
     """
-    Obtém o endereço IP local da Raspberry Pi.
+    Gets the local IP address of the Raspberry Pi.
 
     Returns:
-        str: Endereço IP local detectado.
+        str: Local IP address detected.
     """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -21,12 +21,12 @@ def get_local_ip():
 
 def discovery_SSDP():
     """
-    Inicia o serviço SSDP para descoberta do dispositivo na rede.
+    Starts the SSDP service for device discovery on the network.
 
-    Utiliza o endereço IP local e a porta configurada para anunciar o serviço via SSDP.
+    Uses the local IP address and configured port to advertise the service via SSDP.
 
     Side Effects:
-        Inicia o servidor SSDP e imprime no console o endereço de localização do serviço.
+        Starts the SSDP server and prints to console the location address of the service.
     """
     
     local_ip = get_local_ip()

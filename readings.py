@@ -849,9 +849,13 @@ def memory_voltage_c():
     Returns:
         str: SDRAM memory voltage.
     """
-    vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_c']).decode("utf-8").replace('\n', '')
-    volt = vcgencmd.split('=')[1]
-    return volt
+    if env == 'raspberry':
+        vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_c']).decode("utf-8").replace('\n', '')
+        volt = vcgencmd.split('=')[1]
+        return volt
+    elif env == 'dcn':
+        return "Unknown"
+    return "Unknown"
 
 def memory_voltage_p():
     """
@@ -860,9 +864,13 @@ def memory_voltage_p():
     Returns:
         str: SDRAM memory voltage.
     """
-    vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_p']).decode("utf-8").replace('\n', '')
-    volt = vcgencmd.split('=')[1]
-    return volt
+    if env == 'raspberry':
+        vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_p']).decode("utf-8").replace('\n', '')
+        volt = vcgencmd.split('=')[1]
+        return volt
+    elif env == 'dcn':
+        return "Unknown"
+    return "Unknown"
 
 def memory_buffers():
     """

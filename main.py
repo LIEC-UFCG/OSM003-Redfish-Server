@@ -492,6 +492,21 @@ def get_chassis_id_sensors(system_id):
         flask.Response: JSON with readings from chassis sensors.
     """
     return chassis.get_sensors()
+
+# Route for /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id> endpoint, returns one sensor
+@app.route('/redfish/v1/Chassis/<system_id>/Sensors/<sensor_id>', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("Sensor")
+def get_chassis_id_sensor(system_id, sensor_id):
+    """Route for endpoint /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id>.
+
+    Returns details for a single chassis sensor resource.
+
+    Returns:
+        flask.Response: JSON with sensor data.
+    """
+    return chassis.get_sensor(sensor_id)
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Route for /redfish/v1/JsonSchemas/ endpoint

@@ -372,7 +372,7 @@ def temp_health():
     If temperature is greater than 95°C, returns "Warning", otherwise returns "OK".
 
     Returns:
-        str: "OK" or "Warning" depending on temperature.
+        str: "OK", "Warning", or "Critical".
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_temp']).decode("utf-8").replace('\n', '')
@@ -391,9 +391,13 @@ def temp_health():
                 else:
                     return "Warning"
             else:
-                return "Unknown"
+                # Redfish Health must be one of: OK, Warning, Critical.
+                # If temperature cannot be read, return a conservative value.
+                return "Warning"
         except Exception as e:
-            return "Unknown"
+            return "Warning"
+
+    return "Warning"
 
 
 def cpu_model():
@@ -647,7 +651,7 @@ def cpu_temp():
     Returns the processor temperature as a float.
 
     Returns:
-        float: Processor temperature in Celsius.
+        float | None: Processor temperature in Celsius, or None when unavailable.
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_temp']).decode("utf-8").strip()
@@ -658,11 +662,13 @@ def cpu_temp():
         try:
             temp = _get_dcn_thermal_temp()
             if temp is not None:
-                return f"{temp:.1f}"  # Returns with one decimal place
+                return round(float(temp), 1)
             else:
-                return "Unknown"
+                return None
         except Exception as e:
-            return "Unknown"
+            return None
+
+    return None
 
 def memory_total():
     """
@@ -1518,14 +1524,16 @@ def get_thermal():
     Returns:
         dict: Dictionary with information about system temperatures.
     """
+    reading = cpu_temp()
+    state = "Enabled" if reading is not None else "UnavailableOffline"
     return {
         "Temperatures": [
             {
                 "Name": "CPU Temperature",
-                "ReadingsCelsius": f"{float(cpu_temp()):.1f}",
+                "ReadingsCelsius": reading,
                 "Status": {
                     "Health": temp_health(),
-                    "State": "Enabled"
+                    "State": state
                 }
             }
         ],

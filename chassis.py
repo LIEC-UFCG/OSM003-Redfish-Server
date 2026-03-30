@@ -69,17 +69,54 @@ def get_sensors():
     Returns:
         dict: Dictionary with readings from chassis sensors in Redfish format.
     """
+    machine_id = readings.machine_id()
     sensors = {
         "@odata.type": "#SensorCollection.SensorCollection",
-        "Name": "Chassis sensors",
-        "CPU Temperature": readings.cpu_temp(),
-        "CPU Voltage": readings.cpu_voltage(),
-        "SDRAM_I Voltage": readings.memory_voltage(),
-        "SDRAM_C Voltage": readings.memory_voltage_c(),
-        "SDRAM_P Voltage": readings.memory_voltage_p(),
-        "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/Sensors"
+        "Name": "Chassis Sensors",
+        "Members@odata.count": 1,
+        "Members": [
+            {
+                "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
+            }
+        ],
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors"
     }
     return sensors
+
+def get_sensor(sensor_id):
+    """
+    Returns details for a single chassis sensor.
+
+    Args:
+        sensor_id (str): Sensor identifier.
+
+    Returns:
+        tuple: (dict, int) Sensor payload and HTTP status code.
+    """
+    machine_id = readings.machine_id()
+
+    if sensor_id != "CPUTemp":
+        return {"error": "Sensor not found"}, 404
+
+    reading = readings.cpu_temp()
+    state = "Enabled" if reading is not None else "UnavailableOffline"
+    health = readings.temp_health()
+
+    sensor_payload = {
+        "@odata.type": "#Sensor.v1_6_0.Sensor",
+        "Id": "CPUTemp",
+        "Name": "CPU Temperature",
+        "ReadingType": "Temperature",
+        "ReadingUnits": "Cel",
+        "Reading": reading,
+        "PhysicalContext": "CPU",
+        "Status": {
+            "State": state,
+            "Health": health
+        },
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
+    }
+    return sensor_payload, 200
 
 def get_thermalSubsystem():
     """
@@ -111,18 +148,22 @@ def get_thermalMetrics():
     Returns:
         dict: Dictionary with temperature readings from the chassis in Redfish format.
     """
+    machine_id = readings.machine_id()
+    reading = readings.cpu_temp()
+
     metrics = {
         "@odata.type": "#ThermalMetrics.v1_3_2.ThermalMetrics",
         "Id": "ThermalMetrics",
         "Name": "Chassis Thermal Metrics",
         "TemperatureReadingsCelsius": [
             {
-                "Reading": readings.cpu_temp(),
+                "Reading": reading,
                 "DeviceName": "CPUSubsystem",
-                "DataSourceUri": "/redfish/v1/Chassis/"+readings.machine_id()+"/Sensors"
+                "PhysicalContext": "CPU",
+                "DataSourceUri": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
             },
         ],
-        "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/ThermalSubsystem/ThermalMetrics"
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/ThermalSubsystem/ThermalMetrics"
     }
     return metrics
 

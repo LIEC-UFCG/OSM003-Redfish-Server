@@ -1,5 +1,6 @@
 venv/
 .venv/
+.venv-1/
 __pycache__/
 *.pyc
 venv-redfish/
@@ -36,3 +37,9 @@ bin/server_arm/
 *.pem
 *.crt
 certs/
+
+DOCUMENTACAO.md
+build_docs.ps1
+make.bat
+Makefile
+source/

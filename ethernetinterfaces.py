@@ -57,40 +57,23 @@ def get_computersystem_id_ethernetInterfaces():
     Returns all Ethernet network interfaces of the system in Redfish format.
 
     Returns:
-        dict: Redfish dictionary with the Ethernet interface collection, including details for each interface.
+        dict: Redfish dictionary with the Ethernet interface collection with references to members.
     """
-    interfaces = []
+    machine_id = readings.machine_id()
+    member_refs = []
     
     for iface in readings.eth_names():
-        stats = readings.eth_stats(iface)
-
-        interface_data = {
-            "@odata.type": "#EthernetInterface.v1_12_3.EthernetInterface",
-            "Id": iface,
-            "Name": f"Ethernet Interface {iface}",
-            "Description": f"Network Interface {iface}",
-            "FullDuplex": bool(stats['full_duplex']),  # Ensures it is boolean
-            "IPv4Addresses": stats.get('ipv4_addresses', []),  # Empty list if not available
-            "IPv6Addresses": stats.get('ipv6_addresses', []),
-            "LinkStatus": stats.get('link_status', "Unknown"),
-            "MACAddress": stats.get('mac_address', "00:00:00:00:00:00"),
-            "SpeedMbps": int(stats['speed_mbps']) if isinstance(stats['speed_mbps'], str) and stats['speed_mbps'].isdigit() else stats['speed_mbps'],
-            "Status": {"State": stats.get('state', "Enabled")},
-            #"Gateway": stats.get('gateway', "0.0.0.0"),  # If missing, assumes "0.0.0.0"
-            "NameServers": stats.get('dns', []),
-            "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces/{iface}",
-        }
-        
-        interfaces.append(interface_data)
+        member_refs.append({
+            "@odata.id": f"/redfish/v1/Systems/{machine_id}/EthernetInterfaces/{iface}"
+        })
 
     response = {
         "@odata.type": "#EthernetInterfaceCollection.EthernetInterfaceCollection",
-        "@odata.context": "/redfish/v1/$metadata#EthernetInterfaceCollection.EthernetInterfaceCollection",
-        "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces",
+        "@odata.id": f"/redfish/v1/Systems/{machine_id}/EthernetInterfaces",
         "Name": "Ethernet Interfaces Collection",
         "Description": "System NICs on Raspberry Pi",
-        "Members@odata.count": len(interfaces),
-        "Members": interfaces,  # Correct list of interfaces
+        "Members@odata.count": len(member_refs),
+        "Members": member_refs,
     }
 
     return response

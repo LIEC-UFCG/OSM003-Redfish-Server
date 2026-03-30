@@ -3,13 +3,13 @@ from copy import deepcopy
 
 def dynamic_eth_funcs():
     """
-    Gera dinamicamente funções de endpoint para cada interface Ethernet detectada no sistema.
+    Dynamically generates endpoint functions for each Ethernet interface detected in the system.
 
-    Cada função retornará o dicionário Redfish correspondente à interface de rede específica,
-    permitindo a criação dinâmica de rotas Flask para cada interface.
+    Each function returns the Redfish dictionary corresponding to a specific network interface,
+    allowing dynamic creation of Flask routes for each interface.
 
     Returns:
-        list: Lista de funções, cada uma retornando o JSON Redfish de uma interface Ethernet.
+        list: List of functions, each returning the Redfish JSON for an Ethernet interface.
     """
     systems_eth_endpoint_functions = []
     interface_counter = 1
@@ -28,16 +28,16 @@ def dynamic_eth_funcs():
                     "Id": iface_name,
                     "Name": f"Ethernet Interface {iface_name}",
                     "Description": f"System NIC {iface_number}",
-                    "FullDuplex": bool(stats['full_duplex']),  # Garante que seja booleano
+                    "FullDuplex": bool(stats['full_duplex']),  # Ensures it is boolean
                     "IPv4Addresses": stats['ipv4_addresses'],
                     "IPv6Addresses": stats['ipv6_addresses'],
                     "LinkStatus": stats['link_status'],
                     "MACAddress": stats['mac_address'],
                     "SpeedMbps": int(stats['speed_mbps']) if isinstance(stats['speed_mbps'], str) and stats['speed_mbps'].isdigit() else stats['speed_mbps'],
                     "Status": {"State": stats['state']},
-                    #"Gateway": stats.get('gateway', "0.0.0.0"),  # Se não existir, assume "0.0.0.0"
+                    #"Gateway": stats.get('gateway', "0.0.0.0"),  # If missing, assumes "0.0.0.0"
                     "NameServers": stats['dns'],
-                    "@odata.context": "/redfish/v1/$metadata#EthernetInterface.EthernetInterface",  # Corrigido
+                    "@odata.context": "/redfish/v1/$metadata#EthernetInterface.EthernetInterface",  # Corrected
                     "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces/{iface_name}",
                 }
                 return interface
@@ -54,10 +54,10 @@ def dynamic_eth_funcs():
 
 def get_computersystem_id_ethernetInterfaces():
     """
-    Retorna todas as interfaces de rede Ethernet do sistema no formato Redfish.
+    Returns all Ethernet network interfaces of the system in Redfish format.
 
     Returns:
-        dict: Dicionário Redfish com a coleção de interfaces Ethernet, incluindo detalhes de cada interface.
+        dict: Redfish dictionary with the Ethernet interface collection, including details for each interface.
     """
     interfaces = []
     
@@ -69,14 +69,14 @@ def get_computersystem_id_ethernetInterfaces():
             "Id": iface,
             "Name": f"Ethernet Interface {iface}",
             "Description": f"Network Interface {iface}",
-            "FullDuplex": bool(stats['full_duplex']),  # Garante que seja booleano
-            "IPv4Addresses": stats.get('ipv4_addresses', []),  # Lista vazia se não existir
+            "FullDuplex": bool(stats['full_duplex']),  # Ensures it is boolean
+            "IPv4Addresses": stats.get('ipv4_addresses', []),  # Empty list if not available
             "IPv6Addresses": stats.get('ipv6_addresses', []),
             "LinkStatus": stats.get('link_status', "Unknown"),
             "MACAddress": stats.get('mac_address', "00:00:00:00:00:00"),
             "SpeedMbps": int(stats['speed_mbps']) if isinstance(stats['speed_mbps'], str) and stats['speed_mbps'].isdigit() else stats['speed_mbps'],
             "Status": {"State": stats.get('state', "Enabled")},
-            #"Gateway": stats.get('gateway', "0.0.0.0"),  # Se não existir, assume "0.0.0.0"
+            #"Gateway": stats.get('gateway', "0.0.0.0"),  # If missing, assumes "0.0.0.0"
             "NameServers": stats.get('dns', []),
             "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces/{iface}",
         }
@@ -90,7 +90,7 @@ def get_computersystem_id_ethernetInterfaces():
         "Name": "Ethernet Interfaces Collection",
         "Description": "System NICs on Raspberry Pi",
         "Members@odata.count": len(interfaces),
-        "Members": interfaces,  # Lista correta de interfaces
+        "Members": interfaces,  # Correct list of interfaces
     }
 
     return response

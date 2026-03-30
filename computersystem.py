@@ -14,10 +14,10 @@ import threading
 
 def get_computer():
     """
-    Retorna a coleção de sistemas computacionais.
+    Returns the collection of computer systems.
 
     Returns:
-        dict: Dicionário com informações da coleção de sistemas no formato Redfish.
+        dict: Dictionary with computer systems collection information in Redfish format.
     """
     computer = {
         "@odata.type": "#ComputerSystemCollection.ComputerSystemCollection",
@@ -34,10 +34,10 @@ def get_computer():
 
 def get_computer_system():
     """
-    Retorna os detalhes do ComputerSystem no formato Redfish.
+    Returns the details of ComputerSystem in Redfish format.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes do ComputerSystem.
+        flask.Response: JSON response with ComputerSystem details.
     """
     computer_id = {
         "@odata.type": "#ComputerSystem.v1_23_1.ComputerSystem",
@@ -86,8 +86,8 @@ def get_computer_system():
             "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem"
         },
         "ProcessorSummary": {
-            "Count": 1,  # Raspberry Pi possui 1 processador físico
-            "Model": readings.cpu_model(),  # Modelo do processador
+            "Count": 1,  # Raspberry Pi has 1 physical processor
+            "Model": readings.cpu_model(),  # Processor model
             "Status": {
                 "Health": readings.cpu_health(),
                 "State": "Enabled",
@@ -102,7 +102,7 @@ def get_computer_system():
             "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage"
         },
         "Status": {
-            "Health": readings.cpu_health(),  # Baseado nas funções de saúde (CPU, memória, etc.)
+            "Health": readings.cpu_health(),  # Based on health functions (CPU, memory, etc.)
             "State": "Enabled"
         },
         "SystemType": readings.get_system_type(),
@@ -129,13 +129,13 @@ logging.basicConfig(level=logging.INFO)
 
 def reset_computer(system_id):
     """
-    Executa a ação de Reset do sistema.
+    Executes the system reset action.
 
     Args:
-        system_id (str): ID do sistema a ser resetado.
+        system_id (str): ID of the system to be reset.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro.
+        flask.Response: Success or error message.
     """
     data = request.json
     reset_type = data.get("ResetType", "GracefulRestart")
@@ -151,12 +151,12 @@ def reset_computer(system_id):
             "allowedValues": allowable_resets
         }), 400
 
-    # Retornar a resposta antes de executar o comando
+    # Return response before executing command
     response = jsonify({
         "message": f"System {system_id} is being reset with {reset_type}"
     }), 200
 
-    # Função para executar o comando de forma assíncrona
+    # Function to execute command asynchronously
     def execute_reset():
         try:
             if reset_type == "GracefulShutdown":
@@ -171,7 +171,7 @@ def reset_computer(system_id):
                 subprocess.run(["sudo", "poweroff", "-f"], check=True)
                 subprocess.run(["sudo", "reboot", "-f"], check=True)
         except Exception as e:
-            print(f"Erro ao executar o comando de reset: {str(e)}")
+            print(f"Error executing reset command: {str(e)}")
 
     # Executa o comando em uma nova thread
     threading.Thread(target=execute_reset).start()
@@ -181,17 +181,17 @@ def reset_computer(system_id):
 
 def get_computersystem_id_ethernetInterfaces():
     """
-    Retorna a coleção de interfaces Ethernet do sistema.
+    Returns the collection of Ethernet interfaces from the system.
 
     Returns:
-        dict: Dicionário com informações das interfaces Ethernet no formato Redfish.
+        dict: Dictionary with Ethernet interfaces information in Redfish format.
     """
     eth = {
         "@odata.type": "#EthernetInterfaceCollection.EthernetInterfaceCollection",
         "Name": "Ethernet Interface Collection",
         "Description": "System NICs on Raspberry Pi",
         "Members@odata.count": readings.eth_count(),
-        "Members": readings.eth_members(), # Dicionário
+        "Members": readings.eth_members(), # Dictionary
         "Oem": {},
         "@odata.context": "/redfish/v1/$metadata#Systems/Members/" + readings.machine_id() + "/EthernetInterfaces/$entity",
         "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/EthernetInterfaces",
@@ -200,10 +200,10 @@ def get_computersystem_id_ethernetInterfaces():
 
 def dynamic_eth_funcs():
     """
-    Gera dinamicamente funções de endpoint para cada interface Ethernet detectada.
+    Dynamically generates endpoint functions for each detected Ethernet interface.
 
     Returns:
-        list: Lista de funções, cada uma retornando o dicionário Redfish de uma interface.
+        list: List of functions, each returning the Redfish dictionary of an interface.
     """
     systems_eth_endpoint_functions = []
     interface_counter = 1
@@ -245,10 +245,10 @@ def dynamic_eth_funcs():
 
 def get_systems_id_memory():
     """
-    Retorna a coleção de módulos de memória do sistema.
+    Returns the collection of memory modules from the system.
 
     Returns:
-        dict: Dicionário com informações da coleção de memória no formato Redfish.
+        dict: Dictionary with memory collection information in Redfish format.
     """
     mem = {
         "@odata.type": "#MemoryCollection.MemoryCollection",
@@ -267,63 +267,63 @@ def get_systems_id_memory():
 
 def get_memory_info():
     """
-    Executa o comando lshw para obter informações detalhadas da memória.
+    Executes lshw command to get detailed memory information.
 
     Returns:
-        list: Lista de dicionários com informações dos módulos de memória.
+        list: List of dictionaries with memory module information.
     """
     try:
-        #  Executa o comando lshw e armazena a saída
+        #  Executes lshw command and stores output
         result = subprocess.run(["sudo", "lshw", "-class", "memory", "-json"], 
                                 capture_output=True, text=True, check=True)
-        stdout_output = result.stdout.strip()  # Armazena a saída para evitar chamadas repetidas
+        stdout_output = result.stdout.strip()  # Stores output to avoid repeated calls
 
-        #  Verifica se a saída está vazia
+        #  Checks if output is empty
         if not stdout_output:
-            print(" ERRO: O comando 'lshw' retornou uma saída vazia.")
+            print(" ERROR: 'lshw' command returned empty output.")
             return []
 
-        #  Tenta carregar o JSON, capturando erros de parsing
+        #  Attempts to load JSON, catching parsing errors
         try:
             memory_info = json.loads(stdout_output)
         except json.JSONDecodeError:
-            print(f" ERRO: Falha ao decodificar a saída JSON do lshw.\nSaída: {stdout_output}")
+            print(f" ERROR: Failed to decode lshw JSON output.\nOutput: {stdout_output}")
             return []
 
-        #  Passo 1: Garante que memory_info seja uma lista de dicionários antes de chamar .get()
+        #  Step 1: Ensures memory_info is a list of dictionaries before calling .get()
         if isinstance(memory_info, list):
-            memory_info = [dict(item) for item in memory_info if isinstance(item, dict)]  # Garante que são dicionários
+            memory_info = [dict(item) for item in memory_info if isinstance(item, dict)]  # Ensures they are dictionaries
             memory_info = [item for item in memory_info if str(item.get("id", "")).startswith("memory")]
         else:
-            memory_info = []  # Garante que sempre retorna uma lista
+            memory_info = []  # Ensures always returns a list
 
         return memory_info
 
     except subprocess.CalledProcessError as e:
-        print(f" ERRO: Falha ao executar o comando 'lshw': {e}")
+        print(f" ERROR: Failed to execute 'lshw' command: {e}")
         return []
     except Exception as e:
-        print(f" ERRO INESPERADO: {e}")
+        print(f" UNEXPECTED ERROR: {e}")
         return []
 
 
 def get_memory_field(memory_info, field, default=None):
     """
-    Obtém um campo específico de um módulo de memória.
+    Gets a specific field from a memory module.
 
     Args:
-        memory_info (list): Lista de dicionários de memória.
-        field (str): Nome do campo a ser obtido.
-        default: Valor padrão caso o campo não seja encontrado.
+        memory_info (list): List of memory dictionaries.
+        field (str): Name of the field to obtain.
+        default: Default value if field is not found.
 
     Returns:
-        Valor do campo ou valor padrão.
+        Field value or default value.
     """
     if isinstance(memory_info, list) and memory_info:
         for module in memory_info:
             if isinstance(module, dict) and field in module:
                 value = module.get(field, default)
-                # Se o campo for 'capacity_mib', tenta converter para int
+                # If field is 'capacity_mib', attempts conversion to int
                 if field == "capacity_mib" and value is not None:
                     try:
                         return int(value)
@@ -334,15 +334,15 @@ def get_memory_field(memory_info, field, default=None):
 
 def get_memory_type(description):
     """
-    Mapeia a descrição da memória para o tipo Redfish válido.
+    Maps memory description to valid Redfish type.
 
     Args:
-        description (str): Descrição do tipo de memória.
+        description (str): Description of memory type.
 
     Returns:
-        str: Tipo de memória no padrão Redfish.
+        str: Memory type in Redfish standard.
     """
-    # Mapeamento para valores válidos
+    # Mapping to valid values
     valid_memory_types = {
         "DDR": "DRAM",
         "DDR2": "DRAM",
@@ -351,22 +351,22 @@ def get_memory_type(description):
         "DDR5": "DRAM",
         "LPDDR4": "DRAM",
         "LPDDR5": "DRAM",
-        "System memory": "DRAM",  # Mapeia 'System memory' para 'DRAM'
+        "System memory": "DRAM",  # Maps 'System memory' to 'DRAM'
     }
 
-    # Retorna o mapeamento ou 'DRAM' como fallback
+    # Returns mapping or 'DRAM' as fallback
     return valid_memory_types.get(description, "DRAM")
 
 
 
 def get_systems_id_memory_dimm():
     """
-    Retorna as informações detalhadas do módulo de memória.
+    Returns detailed information about the memory module.
 
     Returns:
-        dict: Dicionário com informações do módulo de memória no formato Redfish.
+        dict: Dictionary with memory module information in Redfish format.
     """
-    memory_info = get_memory_info()  # Captura os dados da memória do sistema
+    memory_info = get_memory_info()  # Captures system memory data
 
     ram = {
         "@odata.type": "#Memory.v1_20_0.Memory",
@@ -376,7 +376,7 @@ def get_systems_id_memory_dimm():
         "Name": "Slot 1",
         "Description": "Memory Module in Slot 1",
         
-        # Campos obrigatórios com valores capturados
+        # Mandatory fields with captured values
         "BusWidthBits": get_memory_field(memory_info, "bus width", default=64),  
         "DataWidthBits": get_memory_field(memory_info, "data width", default=64),  
         "DeviceLocator": get_memory_field(memory_info, "slot", default="DIMM Slot 1"),  
@@ -384,7 +384,7 @@ def get_systems_id_memory_dimm():
         "CapacityMiB": readings.memory_total(),
         "RankCount": get_memory_field(memory_info, "rank", default=1),  
 
-        # Status da memória (obrigatório)
+        # Memory status (mandatory)
         "Status": {
             "Health": readings.memory_health(),
             "State": "Enabled"
@@ -394,10 +394,10 @@ def get_systems_id_memory_dimm():
 
 def get_cpu_info_proc():
     """
-    Obtém informações da CPU a partir do /proc/cpuinfo.
+    Gets CPU information from /proc/cpuinfo.
 
     Returns:
-        tuple: (family, model) da CPU.
+        tuple: (family, model) of CPU.
     """
     family, model = None, None
     try:
@@ -408,7 +408,7 @@ def get_cpu_info_proc():
                 elif "CPU revision" in line:
                     family = line.split(":")[1].strip()
     except Exception as e:
-        print("Erro ao obter CPU info via /proc/cpuinfo:", e)
+        print("Error getting CPU info via /proc/cpuinfo:", e)
 
     return family, model
 
@@ -416,61 +416,61 @@ family, model = get_cpu_info_proc()
 
 def get_redfish_cpu_arch(arch):
     """
-    Mapeia a arquitetura do SO para o valor Redfish correspondente.
+    Maps operating system architecture to corresponding Redfish value.
 
     Args:
-        arch (str): Arquitetura do processador (ex: 'armv7l', 'x86_64').
+        arch (str): Processor architecture (ex: 'armv7l', 'x86_64').
 
     Returns:
-        str: Arquitetura no padrão Redfish.
+        str: Architecture in Redfish standard.
     """
     mapping = {
         "x86_64": "x86",
         "i386": "x86",
         "i686": "x86",
         "ia64": "IA-64",
-        "armv7l": "ARM",  # ARM de 32 bits
-        "aarch64": "ARM",  # ARM de 64 bits tem que ser "ARM"
+        "armv7l": "ARM",  # 32-bit ARM
+        "aarch64": "ARM",  # 64-bit ARM must be 'ARM'
         "mips": "MIPS",
         "mips64": "MIPS",
         "powerpc": "Power",
         "riscv32": "RISC-V",
         "riscv64": "RISC-V"
     }
-    return mapping.get(arch, "OEM")  # Se não encontrar, define como "OEM"
+    return mapping.get(arch, "OEM")  # If not found, set as 'OEM'
 
 def get_redfish_instruction_set(arch):
     """
-    Mapeia a arquitetura do SO para o conjunto de instruções Redfish correspondente.
+    Maps operating system architecture to corresponding Redfish instruction set.
 
     Args:
-        arch (str): Arquitetura do processador.
+        arch (str): Processor architecture.
 
     Returns:
-        str: Conjunto de instruções no padrão Redfish.
+        str: Instruction set in Redfish standard.
     """
     mapping = {
         "x86_64": "x86-64",
         "i386": "x86",
         "i686": "x86",
         "ia64": "IA-64",
-        "armv7l": "ARM-A32",  # ARM de 32 bits
-        "aarch64": "ARM-A64",  # ARM de 64 bits deve ser "ARM-A64"
+        "armv7l": "ARM-A32",  # 32-bit ARM
+        "aarch64": "ARM-A64",  # 64-bit ARM should be 'ARM-A64'
         "mips": "MIPS32",
         "mips64": "MIPS64",
         "powerpc": "PowerISA",
         "riscv32": "RV32",
         "riscv64": "RV64"
     }
-    return mapping.get(arch, "OEM")  # Se não encontrar, define como "OEM"
+    return mapping.get(arch, "OEM")  # If not found, set as 'OEM'
 
 
 def get_systems_id_processors():
     """
-    Retorna a coleção de processadores do sistema.
+    Returns the collection of processors from the system.
 
     Returns:
-        dict: Dicionário com informações dos processadores no formato Redfish.
+        dict: Dictionary with processors information in Redfish format.
     """
     procs = {
         "@odata.type": "#ProcessorCollection.ProcessorCollection",
@@ -490,10 +490,10 @@ def get_systems_id_processors():
 
 def get_systems_id_processors_cpu1():
     """
-    Retorna informações detalhadas do processador principal.
+    Returns detailed information about the main processor.
 
     Returns:
-        dict: Dicionário com informações do processador no formato Redfish.
+        dict: Dictionary with processor information in Redfish format.
     """
     cpu1 = {
         "@odata.type": "#Processor.v1_20_1.Processor",
@@ -523,10 +523,10 @@ def get_systems_id_processors_cpu1():
 
 def get_systems_id_simpleStorage():
     """
-    Retorna a coleção de dispositivos de armazenamento simples do sistema.
+    Returns the collection of simple storage devices from the system.
 
     Returns:
-        dict: Dicionário com informações dos dispositivos de armazenamento no formato Redfish.
+        dict: Dictionary with storage devices information in Redfish format.
     """
     storage = {
         "@odata.type": "#SimpleStorageCollection.SimpleStorageCollection",
@@ -539,22 +539,22 @@ def get_systems_id_simpleStorage():
 
 def dynamic_storage_funcs():
     """
-    Gera dinamicamente funções de endpoint para cada dispositivo de armazenamento detectado.
+    Dynamically generates endpoint functions for each detected storage device.
 
     Returns:
-        list: Lista de funções, cada uma retornando o dicionário Redfish de um dispositivo de armazenamento.
+        list: List of functions, each returning the Redfish dictionary of a storage device.
     """
     systems_storage_endpoint_functions = []
 
-    # Obtém a lista de dispositivos de armazenamento para evitar múltiplas chamadas à API
+    # Gets list of storage devices to avoid multiple API calls
     storage_names = readings.storage_names()
 
-    for idx, member in enumerate(storage_names, start=1):  #  Usa enumerate() para contar corretamente os dispositivos
+    for idx, member in enumerate(storage_names, start=1):  #  Uses enumerate() to correctly count devices
 
-        def bind_storage_function(str_name=member, str_number=str(idx)):  #  Usa argumentos padrão para capturar valores no escopo correto
+        def bind_storage_function(str_name=member, str_number=str(idx)):  #  Uses default arguments to capture values in correct scope
 
             def storage_function():
-                stats = readings.storage_stats(str_name) or {}  #  Garante que stats seja sempre um dicionário
+                stats = readings.storage_stats(str_name) or {}  #  Ensures stats is always a dictionary
 
                 storage_device = {
                     "@odata.type": "#SimpleStorage.v1_3_2.SimpleStorage",
@@ -569,23 +569,23 @@ def dynamic_storage_funcs():
                             "CapacityBytes": int(stats['capacitybytes']) if isinstance(stats.get('capacitybytes'), str) and stats['capacitybytes'].isdigit() else stats.get('capacitybytes'),
 
                             "Status": {
-                                "Health": stats.get('device_health', "OK"),  # Adicionando Status do device
+                                "Health": stats.get('device_health', "OK"),  # Adding device Status
                                 "State": stats.get('device_state', "Enabled"),
                             },
                         },
                     ],
                     "Status": {
-                        "Health": stats.get('storage_health', "OK"),  # Status no nível do SimpleStorage
+                        "Health": stats.get('storage_health', "OK"),  # Status at SimpleStorage level
                         "State": stats.get('storage_state', "Enabled"),
                     },
-                    "UefiDevicePath": stats.get('uefi_device_path', None),  # Se não disponível, retorna None
+                    "UefiDevicePath": stats.get('uefi_device_path', None),  # If not available, returns None
                     #"@odata.context": f"/redfish/v1/$metadata#ComputerSystem/Members/{readings.machine_id()}/SimpleStorage/Members/$entity",
                     "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{str_name}"
                 }
                 
                 return storage_device
 
-            storage_function.__name__ = f"storage_{str_name}"  #  Garante um nome de função válido
+            storage_function.__name__ = f"storage_{str_name}"  #  Ensures valid function name
             return storage_function
 
         systems_storage_endpoint_functions.append(bind_storage_function())

@@ -4,10 +4,10 @@ import subprocess
 
 def obter_ip_local():
     """
-    Obtém o IP local da máquina.
+    Gets the local IP of the machine.
 
     Returns:
-        str: Endereço IP local detectado. Retorna "127.0.0.1" em caso de erro.
+        str: Local IP address detected. Returns "127.0.0.1" on error.
     """
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -20,14 +20,14 @@ def obter_ip_local():
 
 def ip_esta_no_certificado(cert_file, ip_esperado):
     """
-    Verifica se o IP atual já está presente no certificado SAN.
+    Checks if the current IP is already present in the certificate SAN.
 
     Args:
-        cert_file (str): Caminho para o arquivo do certificado.
-        ip_esperado (str): IP que deve estar presente no certificado.
+        cert_file (str): Path to certificate file.
+        ip_esperado (str): IP that should be present in certificate.
 
     Returns:
-        bool: True se o IP estiver no certificado, False caso contrário.
+        bool: True if IP is in certificate, False otherwise.
     """
     if not os.path.exists(cert_file):
         return False
@@ -42,13 +42,13 @@ def ip_esta_no_certificado(cert_file, ip_esperado):
 
 def certificados_estao_atualizados(ip):
     """
-    Verifica se os arquivos de certificado existem e se estão válidos para o IP atual.
+    Checks if certificate files exist and are valid for current IP.
 
     Args:
-        ip (str): IP que deve estar presente no certificado.
+        ip (str): IP that should be present in certificate.
 
     Returns:
-        bool: True se todos os arquivos existem e o IP está no certificado, False caso contrário.
+        bool: True if all files exist and IP is in certificate, False otherwise.
     """
     arquivos_ok = all(os.path.exists(f) for f in ["domain.key", "domain.csr", "domainSAN.crt", "domain.ext"])
     ip_ok = ip_esta_no_certificado("domainSAN.crt", ip)
@@ -56,14 +56,14 @@ def certificados_estao_atualizados(ip):
 
 def gerar_certificados(ip):
     """
-    Gera certificados SSL para o IP informado.
+    Generates SSL certificates for the provided IP.
 
-    Cria os arquivos domain.key, domain.csr, domain.ext e domainSAN.crt usando OpenSSL.
+    Creates domain.key, domain.csr, domain.ext and domainSAN.crt files using OpenSSL.
 
     Args:
-        ip (str): IP que será incluído como SAN no certificado.
+        ip (str): IP to be included as SAN in certificate.
     """
-    print(f"Gerando certificados para IP: {ip}")
+    print(f"Generating certificates for IP: {ip}")
 
     subprocess.run(["openssl", "genrsa", "-out", "domain.key", "2048"], check=True)
     subprocess.run(["openssl", "req", "-new", "-key", "domain.key", "-out", "domain.csr", "-subj", f"/CN={ip}"], check=True)
@@ -76,20 +76,20 @@ def gerar_certificados(ip):
         "-signkey", "domain.key", "-out", "domainSAN.crt", "-extfile", "domain.ext"
     ], check=True)
 
-    print("Certificados gerados com sucesso.")
+    print("Certificates generated successfully.")
 
 def registrar_certificado_no_sistema():
     """
-    Copia o certificado gerado para a lista de certificados confiáveis do sistema e atualiza o repositório.
+    Copies generated certificate to system's trusted certificate list and updates repository.
 
     Side Effects:
-        Executa comandos sudo para copiar e registrar o certificado no sistema.
-        Imprime mensagens de status no console.
+        Executes sudo commands to copy and register certificate in system.
+        Prints status messages to console.
     """
     destino = "/usr/local/share/ca-certificates/redfish.crt"
     try:
         subprocess.run(["sudo", "cp", "domainSAN.crt", destino], check=True)
         subprocess.run(["sudo", "update-ca-certificates"], check=True)
-        print("Certificado registrado no sistema com sucesso.")
+        print("Certificate registered in system successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Erro ao registrar certificado no sistema: {e}")
+        print(f"Error registering certificate in system: {e}")

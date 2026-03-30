@@ -2,57 +2,54 @@ import json
 import os
 from flask import jsonify, request, make_response
 
-# Nome do arquivo onde o estado do AccountService será salvo
+# File name where AccountService state will be saved
 ACCOUNT_SERVICE_FILE = "account_service.json"
 
 
 
-# Estado inicial com apenas os campos obrigatórios
+# Default initial state with only required fields
 default_account_service_state = {
     "ServiceEnabled": True,
     "Accounts": "/redfish/v1/AccountService/Accounts",
     "MinPasswordLength": 8,
     "MaxPasswordLength": 32,
     "AccountLockoutThreshold": 5,
-    "AccountLockoutDuration": 600,  # 10 minutos
-    "AccountLockoutCounterResetAfter": 300,  # 5 minutos
+    "AccountLockoutDuration": 600,  # 10 minutes
+    "AccountLockoutCounterResetAfter": 300,  # 5 minutes
     "AccountLockoutCounterResetEnabled": True,
 }
 
-# Função para carregar o estado do AccountService a partir de um arquivo JSON
+# Function to load AccountService state from JSON file
 def load_account_service():
-    """
-    Carrega o estado do AccountService a partir de um arquivo JSON.
-
+    """Load AccountService state from JSON file.
+    
     Returns:
-        dict: Estado atual do AccountService. Se o arquivo não existir, retorna o estado padrão.
+        dict: Current AccountService state. If file doesn't exist, returns default state.
     """
-    if os.path.exists(ACCOUNT_SERVICE_FILE):            # Verifica se o arquivo existe
+    if os.path.exists(ACCOUNT_SERVICE_FILE):            # Check if file exists
         with open(ACCOUNT_SERVICE_FILE, "r") as file:
-            return json.load(file)                      # Carrega o estado do arquivo JSON
-    return default_account_service_state.copy()         # Retorna uma cópia do estado padrão
+            return json.load(file)                      # Load state from JSON file
+    return default_account_service_state.copy()         # Return copy of default state
 
-# Função para salvar o estado do AccountService em um arquivo JSON
+# Function to save AccountService state to JSON file
 def save_account_service(state):
-    """
-    Salva o estado do AccountService em um arquivo JSON.
-
+    """Save AccountService state to JSON file.
+    
     Args:
-        state (dict): Estado do AccountService a ser salvo.
+        state (dict): AccountService state to be saved.
     """
     with open(ACCOUNT_SERVICE_FILE, "w") as file:
         json.dump(state, file, indent=4)
 
-# Inicializa o estado do AccountService ao carregar o módulo
+# Initialize AccountService state when loading module
 account_service_state = load_account_service()
 
-# Função para obter os dados do AccountService
+# Function to get AccountService data
 def get_account_service():
-    """
-    Retorna os dados do AccountService no formato Redfish.
-
+    """Return AccountService data in Redfish format.
+    
     Returns:
-        flask.Response: Resposta JSON com os dados do AccountService.
+        flask.Response: JSON response with AccountService data.
     """
     response = {
         "@odata.id": "/redfish/v1/AccountService",
@@ -72,40 +69,38 @@ def get_account_service():
     }
     return jsonify(response)
 
-# Função para atualizar o estado do AccountService
+# Function to update AccountService state
 def update_account_service(data):
-    """
-    Atualiza apenas o campo obrigatório 'ServiceEnabled' do AccountService.
-
+    """Update only the 'ServiceEnabled' required field of AccountService.
+    
     Args:
-        data (dict): Dicionário contendo o campo 'ServiceEnabled' a ser atualizado.
-
+        data (dict): Dictionary containing 'ServiceEnabled' field to be updated.
+    
     Returns:
-        flask.Response: Mensagem de sucesso ou erro.
+        flask.Response: Success or error message.
     """
-    if "ServiceEnabled" in data:        # Verifica se o campo 'ServiceEnabled' está presente nos dados
-        account_service_state["ServiceEnabled"] = bool(data["ServiceEnabled"])  # Atualiza o estado
-        save_account_service(account_service_state)     # Salva o estado atualizado no arquivo
-        return make_response({"message": "AccountService updated successfully."}, 200)      # Retorna sucesso
+    if "ServiceEnabled" in data:        # Check if 'ServiceEnabled' field is present in data
+        account_service_state["ServiceEnabled"] = bool(data["ServiceEnabled"])  # Update state
+        save_account_service(account_service_state)     # Save updated state to file
+        return make_response({"message": "AccountService updated successfully."}, 200)      # Return success
         
-        # Retorna erro se os dados fornecidos não forem válidos
+        # Return error if provided data is not valid
     return make_response({"error": "Invalid properties in request."}, 400)
   
-# Função para autenticar um usuário
+# Function to authenticate a user
 def authenticate(username, password):
-    """
-    Verifica se o usuário e senha são válidos.
-
+    """Check if user and password are valid.
+    
     Args:
-        username (str): Nome do usuário.
-        password (str): Senha do usuário.
-
+        username (str): User name.
+        password (str): User password.
+    
     Returns:
-        bool: True se as credenciais forem válidas, False caso contrário.
+        bool: True if credentials are valid, False otherwise.
     """
-    accounts = load_account_service()["Users"]      # Carrega a lista de usuários do estado do AccountService
-    for user in accounts:       # Itera sobre os usuários
-        if user["UserName"] == username and user["Password"] == password:       # Verifica se o nome de usuário e senha correspondem
-            return True  # Retorna True se as credenciais forem válidas
-    return False        # Retorna False se as credenciais forem inválidas
+    accounts = load_account_service()["Users"]      # Load list of users from AccountService state
+    for user in accounts:       # Iterate over users
+        if user["UserName"] == username and user["Password"] == password:       # Check if username and password match
+            return True  # Return True if credentials are valid
+    return False        # Return False if credentials are invalid
 

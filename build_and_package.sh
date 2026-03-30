@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Nome do script principal
+# Main script name
 SCRIPT_NAME="main.py"
 
-# Verifica se o script existe
+# Checks if the script exists
 if [[ ! -f "$SCRIPT_NAME" ]]; then
-    echo "Arquivo $SCRIPT_NAME não encontrado!"
+    echo "File $SCRIPT_NAME not found!"
     exit 1
 fi
 
-# Detecta arquitetura da máquina
+# Detects machine architecture
 ARCH=$(uname -m)
 BIN_NAME=""
 case "$ARCH" in
@@ -20,38 +20,38 @@ case "$ARCH" in
         BIN_NAME="server_x86_64"
         ;;
     *)
-        echo "Arquitetura não suportada: $ARCH"
+        echo "Unsupported architecture: $ARCH"
         exit 1
         ;;
 esac
 
-echo "[*] Arquitetura detectada: $ARCH"
-echo "[*] Gerando binário com PyInstaller..."
+echo "[*] Detected architecture: $ARCH"
+echo "[*] Generating binary with PyInstaller..."
 
-# Gera binário
+# Generates binary
 pyinstaller --onefile "$SCRIPT_NAME"
 
-# Verifica se o executável foi criado
+# Checks if the executable was created
 if [[ ! -f "dist/main" ]]; then
-    echo "Erro: binário não foi gerado corretamente."
+    echo "Error: binary was not generated correctly."
     exit 1
 fi
 
-# Cria pasta bin se necessário
+# Creates bin folder if necessary
 mkdir -p bin
 
-# Move binário com nome apropriado
+# Moves binary with appropriate name
 cp dist/main "./bin/$BIN_NAME"
 chmod +x "./bin/$BIN_NAME"
 
-echo "[✓] Binário movido para ./bin/$BIN_NAME"
+echo "[✓] Binary moved to ./bin/$BIN_NAME"
 
-# Cria diretório de empacotamento final
+# Creates final packaging directory
 PACKAGE_DIR="redfish_server_package"
 mkdir -p "$PACKAGE_DIR/bin"
 mkdir -p "$PACKAGE_DIR/deps"
 
-# Copia binário e start.sh
+# Copies binary and start.sh
 cp "./bin/$BIN_NAME" "$PACKAGE_DIR/bin/"
 cp start.sh "$PACKAGE_DIR/"
 cp accounts.json "$PACKAGE_DIR/"

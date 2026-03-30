@@ -2,13 +2,13 @@ from flask import jsonify
 
 def priv():    
     """
-    Retorna o Privilege Registry no formato Redfish.
+    Returns the Privilege Registry in Redfish format.
 
-    O Privilege Registry descreve o mapeamento de privilégios necessários para acessar e operar
-    em diferentes entidades e operações da API Redfish, conforme especificação DMTF.
+    The Privilege Registry describes the mapping of privileges required to access and operate
+    on different entities and operations of the Redfish API, according to DMTF specification.
 
     Returns:
-        flask.Response: Resposta JSON com o Privilege Registry, incluindo entidades, operações e privilégios associados.
+        flask.Response: JSON response with the Privilege Registry, including entities, operations and associated privileges.
     """
     response = {
             "@odata.type": "#PrivilegeRegistry.v1_1_4.PrivilegeRegistry",

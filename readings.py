@@ -9,6 +9,12 @@ import re
 import subprocess
 
 def get_environment():
+    """
+    Detects the runtime environment.
+
+    Returns:
+        str: 'raspberry' when running on Raspberry Pi hardware, otherwise 'dcn'.
+    """
     try:
         with open("/proc/device-tree/model", "r") as f:
             model = f.read().lower()
@@ -24,10 +30,10 @@ env = get_environment()
 
 def serial():
     """
-    Obtém o número de série do dispositivo.
+    Gets the serial number of the device.
 
     Returns:
-        str: Número de série do dispositivo.
+        str: Device serial number.
     """
     if env == 'raspberry':
         return check_output(["cat", "/sys/firmware/devicetree/base/serial-number"]).decode("utf-8").replace('\u0000', '')
@@ -40,31 +46,49 @@ def serial():
                     return f.read().strip().replace('\u0000', '')
             return "Unknown"
         except Exception as e:
-            print(f"Erro ao obter serial: {e}")
+            print(f"Error getting serial: {e}")
             return "ERROR_SERIAL"
 
 
 def machine_id():
     """
-    Obtém o Machine ID do dispositivo.
+    Gets the Machine ID of the device.
 
-    Executa o comando 'hostnamectl' e extrai o Machine ID da saída.
+    Executes 'hostnamectl' command and extracts the Machine ID from the output.
 
     Returns:
-        str: Machine ID do dispositivo.
+        str: Device Machine ID.
     """
-    hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
-    machine_id_num = check_output(["grep", "Machine ID"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
-    id_num = machine_id_num.split()[2]
-    return id_num
+    # Linux path: prefer hostnamectl output when available.
+    try:
+        hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
+        machine_id_num = check_output(["grep", "Machine ID"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
+        id_num = machine_id_num.split()[2]
+        if id_num:
+            return id_num
+    except Exception:
+        pass
+
+    # Portable fallback: try /etc/machine-id.
+    try:
+        if os.path.exists('/etc/machine-id'):
+            with open('/etc/machine-id', 'r', encoding='utf-8') as f:
+                value = f.read().strip()
+                if value:
+                    return value
+    except Exception:
+        pass
+
+    # Last-resort fallback for Windows/dev environments.
+    return platform.node() or "UNKNOWN_MACHINE_ID"
 
 
 def boot_id():
     """
-    Obtém o Boot ID do Raspberry Pi.
+    Gets the Boot ID of the Raspberry Pi.
 
     Returns:
-        str: Boot ID do dispositivo.
+        str: Device Boot ID.
     """
     hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
     boot_id_num = check_output(["grep", "Boot ID"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
@@ -73,10 +97,10 @@ def boot_id():
 
 def hostname():
     """
-    Obtém o hostname (nome do host) do dispositivo.
+    Gets the hostname of the device.
 
     Returns:
-        str: Hostname do dispositivo.
+        str: Device hostname.
     """
     hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
     hostname = check_output(["grep", "Static hostname"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
@@ -85,10 +109,10 @@ def hostname():
 
 def board_name():
     """
-    Obtém o nome da placa do dispositivo (modelo resumido).
+    Gets the board name of the device (abbreviated model).
 
     Returns:
-        str: Nome resumido da placa.
+        str: Abbreviated board name.
     """
     base_model = check_output(["cat", "/sys/firmware/devicetree/base/model"]).decode("utf-8").replace('\u0000', '')
     name = base_model.split()[:3]
@@ -100,10 +124,10 @@ def board_name():
 
 def model():
     """
-    Obtém o modelo completo do dispositivo.
+    Gets the complete model of the device.
 
     Returns:
-        str: Modelo completo do dispositivo.
+        str: Complete device model.
     """
     if env == 'raspberry':
         return check_output(["cat", "/sys/firmware/devicetree/base/model"]).decode("utf-8").replace('\u0000', '')
@@ -115,9 +139,9 @@ def model():
                 with open(path, "r") as f:
                     return f.read().strip().replace('\u0000', '')
         except Exception as e:
-            print(f"Erro ao ler {path}: {e}")
+            print(f"Error reading {path}: {e}")
 
-        # Tentando capturar o modelo a partir de /proc/cpuinfo
+        # Trying to capture model from /proc/cpuinfo
         try:
             path = "/proc/cpuinfo"
             if os.path.exists(path):
@@ -126,42 +150,42 @@ def model():
                         if line.startswith("model name"):
                             return line.split(":")[1].strip()
         except Exception as e:
-            print(f"Erro ao ler {path}: {e}")
+            print(f"Error reading {path}: {e}")
 
-        return "Modelo não encontrado"
+        return "Model not found"
 
 def system_uuid():
     """
-    Obtém o UUID do sistema de arquivos raiz.
+    Gets the system UUID from the root filesystem.
 
-    Executa o comando 'lsblk' para listar os dispositivos de bloco e extrai o UUID
-    do dispositivo que está montado como '/' (raiz do sistema).
+    Executes the 'lsblk' command to list block devices and extracts the UUID
+    of the device mounted as '/' (system root).
 
     Returns:
         str or None: UUID do sistema de arquivos raiz, ou None em caso de erro.
     """
     try:
-        # Executa lsblk e captura a saída
+        # Executes lsblk and captures output
         lsblk_output = check_output(['lsblk', '-o', 'UUID,MOUNTPOINT']).decode("utf-8")
-        # Percorre cada linha da saída
-        for line in lsblk_output.splitlines()[1:]:  # Ignora o cabeçalho
-            columns = line.split()  # Divide a linha em colunas
-            if len(columns) == 2 and columns[1] == '/':  # Verifica se está montada como root
-                uuid = columns[0]  # Assume que o UUID é a primeira coluna
+        # Iterates through each line of output
+        for line in lsblk_output.splitlines()[1:]:  # Ignores header
+            columns = line.split()  # Splits line into columns
+            if len(columns) == 2 and columns[1] == '/':  # Checks if mounted as root
+                uuid = columns[0]  # Assumes UUID is in first column
                 return uuid
     except CalledProcessError as e:
-        print(f"Erro ao executar lsblk: {e}")
-        return None  # ou algum valor padrão
+        print(f"Error executing lsblk: {e}")
+        return None  # or some default value
 
     return None
 
 
 def power_led():
     """
-    Retorna o status do LED de Power do dispositivo.
+    Returns the status of the device Power LED.
 
     Returns:
-        str: "On" se o LED estiver aceso, "Off" caso contrário.
+        str: "On" if LED is on, "Off" otherwise.
     """
     led_brightness = int(check_output(["cat", "/sys/class/leds/PWR/brightness"]).decode("utf-8"))
     if(led_brightness > 0):
@@ -172,6 +196,12 @@ def power_led():
 
 
 def manufacturer():
+    """
+    Gets the baseboard manufacturer.
+
+    Returns:
+        str: Manufacturer name, or 'Unknown' if unavailable.
+    """
     env = get_environment()
 
     if env == 'raspberry':
@@ -199,7 +229,7 @@ def manufacturer():
             return manufacturers.get(manufacturer_id, "Unknown")
 
         except Exception as e:
-            print(f"Erro ao obter fabricante na Raspberry Pi: {e}")
+            print(f"Error getting manufacturer on Raspberry Pi: {e}")
             return "Unknown"
 
     elif env == 'dcn':
@@ -207,7 +237,7 @@ def manufacturer():
             output = check_output(['sudo', 'dmidecode', '-s', 'baseboard-manufacturer']).decode("utf-8").strip()
             return output if output else "Unknown"
         except Exception as e:
-            print(f"Erro ao obter fabricante no DCN: {e}")
+            print(f"Error getting manufacturer on DCN: {e}")
             return "Unknown"
 
     else:
@@ -218,10 +248,10 @@ def manufacturer():
 
 def power_health():
     """
-    Retorna a saúde do sistema de alimentação baseado na tensão dos cores e da memória RAM.
+    Returns the power system health based on core and RAM voltage.
 
     Returns:
-        str: "OK" se todas as tensões estiverem dentro do intervalo esperado, "Warning" caso contrário.
+        str: "OK" if all voltages are within expected range, "Warning" otherwise.
     """
     if env == 'raspberry':
         core = check_output(['vcgencmd', 'measure_volts', 'core']).decode("utf-8").replace('\n', '')
@@ -238,34 +268,34 @@ def power_health():
             return "Warning"
     elif env == 'dcn':
         try:
-            # Obtem informações do uso da CPU e memória para simular a saúde do sistema
+            # Gets CPU and memory usage information to simulate system health
             cpu_usage = psutil.cpu_percent(interval=1)
             memory = psutil.virtual_memory()
             memory_usage = memory.percent
 
-            # Define limites para determinar saúde
-            if cpu_usage < 80 and memory_usage < 80:  # Ajuste os valores conforme necessário
+            # Sets limits to determine health
+            if cpu_usage < 80 and memory_usage < 80:  # Adjust values as needed
                 return "OK"
             else:
                 return "Warning"
         except Exception as e:
-            print(f"Erro ao calcular a saúde do sistema: {e}")
+            print(f"Error calculating system health: {e}")
             return "Unknown"
 
 
 
 def _get_dcn_thermal_temp():
     """
-    Obtém a temperatura do processador a partir de múltiplas fontes em DCN (Linux genérico).
-    Tenta thermal_zone, hwmon, e sensores alternativos.
+    Gets processor temperature from multiple sources in DCN (generic Linux).
+    Tries thermal_zone, hwmon, and alternative sensors.
 
     Returns:
-        float: Temperatura em graus Celsius, ou None se não encontrado.
+        float: Temperature in Celsius, or None if not found.
     """
-    # Método 1: /sys/class/thermal/
+    # Method 1: /sys/class/thermal/
     thermal_dir = "/sys/class/thermal"
     if os.path.exists(thermal_dir):
-        # Tenta thermal_zone0 primeiro
+        # Tries thermal_zone0 first
         temp_path = os.path.join(thermal_dir, "thermal_zone0", "temp")
         if os.path.exists(temp_path):
             try:
@@ -275,7 +305,7 @@ def _get_dcn_thermal_temp():
             except Exception:
                 pass
         
-        # Tenta outras zonas térmicas
+        # Tries other thermal zones
         try:
             for zone_dir in sorted(os.listdir(thermal_dir)):
                 if zone_dir.startswith("thermal_zone"):
@@ -290,13 +320,13 @@ def _get_dcn_thermal_temp():
         except Exception:
             pass
     
-    # Método 2: /sys/class/hwmon/
+    # Method 2: /sys/class/hwmon/
     hwmon_dir = "/sys/class/hwmon"
     if os.path.exists(hwmon_dir):
         try:
             for hwmon in sorted(os.listdir(hwmon_dir)):
                 hwmon_path = os.path.join(hwmon_dir, hwmon)
-                # Procura por temp*_input (temp1_input, temp2_input, etc)
+                # Looks for temp*_input (temp1_input, temp2_input, etc)
                 try:
                     for temp_file in sorted(os.listdir(hwmon_path)):
                         if temp_file.startswith("temp") and temp_file.endswith("_input"):
@@ -304,8 +334,8 @@ def _get_dcn_thermal_temp():
                             try:
                                 with open(temp_input_path, "r") as f:
                                     temp_millicelsius = int(f.read().strip())
-                                    # Se o valor é muito pequeno, provavelmente não é temperatura
-                                    if temp_millicelsius > 1000:  # Pelo menos 1°C
+                                    # If the value is too small, it's probably not temperature
+                                    if temp_millicelsius > 1000:  # At least 1°C
                                         return temp_millicelsius / 1000.0
                             except Exception:
                                 continue
@@ -314,13 +344,13 @@ def _get_dcn_thermal_temp():
         except Exception:
             pass
     
-    # Método 3: Comando 'sensors' se disponível
+    # Method 3: 'sensors' command if available
     try:
         output = check_output(["sensors"], stderr=DEVNULL).decode("utf-8")
-        # Procura por linhas com "Core" ou "Package" e extrai temperatura
+        # Looks for lines with "Core" or "Package" and extracts temperature
         for line in output.split("\n"):
             if ("Core" in line or "Package" in line or "CPU" in line) and "°C" in line:
-                # Extrai o valor numérico antes de °C
+                # Extracts numeric value before °C
                 parts = line.split()
                 for i, part in enumerate(parts):
                     if "°C" in part and i > 0:
@@ -337,12 +367,12 @@ def _get_dcn_thermal_temp():
 
 def temp_health():
     """
-    Retorna o status da temperatura do processador.
+    Returns the status of the processor temperature.
 
-    Se a temperatura for maior que 95°C, retorna "Warning", caso contrário retorna "OK".
+    If temperature is greater than 95°C, returns "Warning", otherwise returns "OK".
 
     Returns:
-        str: "OK" ou "Warning" dependendo da temperatura.
+        str: "OK", "Warning", or "Critical".
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_temp']).decode("utf-8").replace('\n', '')
@@ -361,12 +391,22 @@ def temp_health():
                 else:
                     return "Warning"
             else:
-                return "Unknown"
+                # Redfish Health must be one of: OK, Warning, Critical.
+                # If temperature cannot be read, return a conservative value.
+                return "Warning"
         except Exception as e:
-            return "Unknown"
+            return "Warning"
+
+    return "Warning"
 
 
 def cpu_model():
+    """
+    Gets the CPU model string for the current environment.
+
+    Returns:
+        str: CPU model string, or an error/unknown message when not available.
+    """
     env = get_environment()
 
     if env == 'raspberry':
@@ -376,10 +416,10 @@ def cpu_model():
                 compatible = f.read().strip()
             for item in compatible.split("\x00"):
                 if "bcm" in item:
-                    return item.split(",")[1]  # Exemplo: bcm2711
-            return "Modelo não encontrado"
+                    return item.split(",")[1]  # Example: bcm2711
+            return "Model not found"
         except Exception as e:
-            return f"Erro ao ler modelo na Raspberry Pi: {e}"
+            return f"Error reading model on Raspberry Pi: {e}"
 
     elif env == 'dcn':
         try:
@@ -387,19 +427,19 @@ def cpu_model():
                 for line in f:
                     if "model name" in line.lower():
                         return line.split(":", 1)[1].strip()
-            return "Modelo não encontrado"
+            return "Model not found"
         except Exception as e:
-            return f"Erro ao ler modelo no DCN: {e}"
+            return f"Error reading model on DCN: {e}"
 
     else:
-        return "Ambiente desconhecido"
+        return "Unknown environment"
 
 def cpu_vendor():
     """
-    Retorna o fabricante (vendor) dos núcleos do processador.
+    Returns the processor vendor ID.
 
     Returns:
-        str: Identificador do fabricante (Vendor ID).
+        str: Processor vendor ID.
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     vendor = check_output(["grep", "Vendor ID"], stdin=lscpu.stdout).decode("utf-8")
@@ -408,10 +448,10 @@ def cpu_vendor():
 
 def cpu_core_model():
     """
-    Retorna o modelo dos núcleos do processador.
+    Returns the processor core model.
 
     Returns:
-        str: Modelo dos núcleos, incluindo Vendor ID e Model name.
+        str: Core model including Vendor ID and Model name.
     """
     lscpu_a = Popen(['lscpu'], stdout=PIPE)
     vendor = check_output(["grep", "Vendor ID"], stdin=lscpu_a.stdout).decode("utf-8")
@@ -423,10 +463,10 @@ def cpu_core_model():
 
 def cpu_arch():
     """
-    Retorna a arquitetura do processador.
+    Returns the processor architecture.
 
     Returns:
-        str: Arquitetura do processador (ex: 'armv7l', 'aarch64', etc).
+        str: Processor architecture (ex: 'armv7l', 'aarch64', etc).
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     arch_number = check_output(["grep", "Architecture"], stdin=lscpu.stdout).decode("utf-8")
@@ -435,10 +475,10 @@ def cpu_arch():
 
 def cpu_byte_order():
     """
-    Retorna o endianess (ordem dos bytes) do processador.
+    Returns the processor byte order (endianness).
 
     Returns:
-        str: Endianess do processador (ex: 'Little Endian').
+        str: Processor endianness (ex: 'Little Endian').
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     byte_order_out = check_output(["grep", "Byte Order"], stdin=lscpu.stdout).decode("utf-8")
@@ -447,64 +487,64 @@ def cpu_byte_order():
 
 def cpu_usage_percent():
     """
-    Retorna a porcentagem de uso atual do processador.
+    Returns the current CPU usage percentage.
 
     Returns:
-        float: Porcentagem de uso da CPU.
+        float: CPU usage percentage.
     """
     return psutil.cpu_percent(interval=1)
 
 def cpu_cores():
     """
-    Retorna a quantidade de núcleos físicos do processador.
+    Returns the number of physical processor cores.
 
     Returns:
-        str: Número de núcleos físicos.
+        str: Number of physical cores.
     """
     return str(psutil.cpu_count(logical=False))
 
 def cpu_threads():
     """
-    Retorna a quantidade de threads (núcleos lógicos) do processador.
+    Returns the number of threads (logical cores) of the processor.
 
     Returns:
-        str: Número de threads.
+        str: Number of threads.
     """
     return str(psutil.cpu_count(logical=True))
 
 def cpu_freq():
     """
-    Retorna a frequência de operação atual do processador.
+    Returns the current processor operating frequency.
 
     Returns:
-        str: Frequência atual em MHz.
+        str: Current frequency in MHz.
     """
     return str(psutil.cpu_freq()[0])
 
 def cpu_min_freq():
     """
-    Retorna a frequência mínima de operação do processador.
+    Returns the minimum processor operating frequency.
 
     Returns:
-        str: Frequência mínima em MHz.
+        str: Minimum frequency in MHz.
     """
     return str(psutil.cpu_freq()[1]) + " MHz"
 
 def cpu_max_freq():
     """
-    Retorna a frequência máxima de operação do processador.
+    Returns the maximum processor operating frequency.
 
     Returns:
-        str: Frequência máxima em MHz.
+        str: Maximum frequency in MHz.
     """
     return str(psutil.cpu_freq()[2]) + " MHz"
 
 def cpu_cache_l1d():
     """
-    Retorna a capacidade de memória cache L1d do processador.
+    Returns the processor L1d cache capacity.
 
     Returns:
-        str: Capacidade da cache L1d.
+        str: L1d cache capacity.
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     l1d = check_output(["grep", "L1d"], stdin=lscpu.stdout).decode("utf-8")
@@ -513,10 +553,10 @@ def cpu_cache_l1d():
 
 def cpu_cache_l1i():
     """
-    Retorna a capacidade de memória cache L1i do processador.
+    Returns the processor L1i cache capacity.
 
     Returns:
-        str: Capacidade da cache L1i.
+        str: L1i cache capacity.
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     l1i = check_output(["grep", "L1i"], stdin=lscpu.stdout).decode("utf-8")
@@ -525,10 +565,10 @@ def cpu_cache_l1i():
 
 def cpu_cache_l2():
     """
-    Retorna a capacidade de memória cache L2 do processador.
+    Returns the processor L2 cache capacity.
 
     Returns:
-        str: Capacidade da cache L2.
+        str: L2 cache capacity.
     """
     lscpu = Popen(['lscpu'], stdout=PIPE)
     l2 = check_output(["grep", "L2"], stdin=lscpu.stdout).decode("utf-8")
@@ -537,10 +577,10 @@ def cpu_cache_l2():
 
 def cpu_voltage():
     """
-    Retorna a tensão de alimentação lida pelo processador.
+    Returns the processor supply voltage reading.
 
     Returns:
-        str: Tensão do processador.
+        str: Processor voltage.
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_volts', 'core']).decode("utf-8").replace('\n', '')
@@ -548,35 +588,35 @@ def cpu_voltage():
         return volt
     elif env == 'dcn':
         try:
-            # Caminhos alternativos onde a tensão da CPU pode ser lida
+            # Alternative paths where CPU voltage can be read
             voltage_paths = [
-                "/sys/class/hwmon/hwmon0/in0_input",  # Caminho típico
-                "/sys/class/hwmon/hwmon1/in0_input",  # Possível caminho alternativo
-                "/sys/class/hwmon/hwmon2/in0_input"   # Outro possível caminho
+                "/sys/class/hwmon/hwmon0/in0_input",  # Typical path
+                "/sys/class/hwmon/hwmon1/in0_input",  # Alternative path
+                "/sys/class/hwmon/hwmon2/in0_input"   # Another possible path
             ]
             
             for voltage_path in voltage_paths:
                 if os.path.exists(voltage_path):
                     with open(voltage_path, "r") as f:
-                        # Geralmente, a tensão é fornecida em milivolts (mV), então convertemos para volts (V)
+                        # Usually, voltage is provided in millivolts (mV), so we convert to volts (V)
                         voltage = int(f.read().strip()) / 1000.0
                         return f"{voltage} V"
             
-            # Se nenhum dos caminhos funcionar
-            #print("Nenhum arquivo de tensão encontrado. Retornando 'Unknown'.")
+            # If none of the paths work
+            #print("No voltage file found. Returning 'Unknown'.")
             return "Unknown"
 
         except Exception as e:
-            # Tratamento de exceções
-            print(f"Erro ao obter a tensão da CPU: {e}")
+            # Exception handling
+            print(f"Error getting CPU voltage: {e}")
             return "Unknown"
 
 def cpu_health():
     """
-    Retorna a saúde do processador baseado na tensão dos cores.
+    Returns processor health based on core voltage.
 
     Returns:
-        str: "OK" se a tensão estiver dentro do intervalo esperado, "Warning" caso contrário.
+        str: "OK" if voltage is within expected range, "Warning" otherwise.
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_volts', 'core']).decode("utf-8").replace('\n', '')
@@ -587,14 +627,14 @@ def cpu_health():
             return "Warning"
     elif env == 'dcn':
         try:
-            # Utilize a função substituta para obter a tensão
+            # Use substitute function to get voltage
             voltage = cpu_voltage()
             if voltage == "Unknown":
-                # Se a tensão não puder ser obtida, atribui um valor padrão de Warning
+                # If voltage cannot be obtained, assign default Warning value
                 return "Warning"
 
-            # Converta a tensão para um número e avalie
-            voltage_value = float(voltage.split()[0])  # Remove a unidade 'V'
+            # Convert voltage to number and evaluate
+            voltage_value = float(voltage.split()[0])  # Removes the unit 'V'
             if 1.2 <= voltage_value <= 1.3:
                 return "OK"
             elif 1.1 <= voltage_value < 1.2 or 1.3 < voltage_value <= 1.4:
@@ -602,72 +642,74 @@ def cpu_health():
             else:
                 return "Critical"
         except Exception as e:
-            print(f"Erro ao determinar a saúde da CPU: {e}")
-            # Qualquer erro retorna um estado conservador
+            print(f"Error determining CPU health: {e}")
+            # Any error returns a conservative state
             return "Critical"
 
 def cpu_temp():
     """
-    Retorna a temperatura do processador como um número float.
+    Returns the processor temperature as a float.
 
     Returns:
-        float: Temperatura do processador em graus Celsius.
+        float | None: Processor temperature in Celsius, or None when unavailable.
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_temp']).decode("utf-8").strip()
-        temp = vcgencmd.split('=')[1].replace("'C", "")  # Remove "'C" do final
-        return float(temp)  # Converte para float e retorna
+        temp = vcgencmd.split('=')[1].replace("'C", "")  # Removes "'C" from the end
+        return float(temp)  # Convert to float and return
     
     elif env == 'dcn':
         try:
             temp = _get_dcn_thermal_temp()
             if temp is not None:
-                return f"{temp:.1f}"  # Retorna com uma casa decimal
+                return round(float(temp), 1)
             else:
-                return "Unknown"
+                return None
         except Exception as e:
-            return "Unknown"
+            return None
+
+    return None
 
 def memory_total():
     """
-    Retorna a memória total do dispositivo em MiB como um inteiro.
+    Returns the total device memory in MiB as an integer.
 
     Returns:
-        int: Quantidade total de memória em MiB. Retorna 0 em caso de erro.
+        int: Total amount of memory in MiB. Returns 0 on error.
     """
     if env == 'raspberry':
         try:
-            # Executa o comando para obter a memória total
+            # Execute command to get total memory
             vcgencmd = Popen(['vcgencmd', 'get_config', 'int'], stdout=PIPE)
             total_mem = check_output(["grep", "total_mem"], stdin=vcgencmd.stdout).decode("utf-8").strip()
             
-            # Extrai o valor após o '=' e converte para inteiro
+            # Extracts value after '=' and converts to integer
             mem = total_mem.split('=')[1]
-            return int(mem)  # Garante que o valor retornado é um inteiro
+            return int(mem)  # Ensures the returned value is an integer
         except (IndexError, ValueError, FileNotFoundError, CalledProcessError) as e:
-            print(f"Erro ao obter a memória total: {e}")
-            return 0  # Valor padrão em caso de erro
+            print(f"Error getting total memory: {e}")
+            return 0  # Default value in case of error
     elif env == 'dcn':
         try:
             with open("/proc/meminfo", "r") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
-                        mem_kib = int(line.split()[1])  # Memória total em KiB
-                        mem_gib = mem_kib / (1024 ** 2)  # Converte para GiB (1 GiB = 1024^2 KiB)
-                        return round(mem_gib, 2)  # Retorna arredondado a 2 casas decimais
-            return None  # Retorna None caso a memória total não seja encontrada
+                        mem_kib = int(line.split()[1])  # Total memory in KiB
+                        mem_gib = mem_kib / (1024 ** 2)  # Convert to GiB (1 GiB = 1024^2 KiB)
+                        return round(mem_gib, 2)  # Returns rounded to 2 decimal places
+            return None  # Returns None if total memory is not found
         except Exception as e:
-            print(f"Erro ao capturar a memória total: {e}")
+            print(f"Error capturing total memory: {e}")
             return None
 
 
 
 def memory_arm():
     """
-    Retorna a memória do dispositivo alocada para CPU geral.
+    Returns the device memory allocated for general CPU use.
 
     Returns:
-        str: Quantidade de memória alocada para a CPU.
+        str: Amount of memory allocated for the CPU.
     """
     if env == 'raspberry':
         mem_arm = check_output(["vcgencmd", "get_mem", "arm"]).decode("utf-8").replace('\n', '')
@@ -675,20 +717,20 @@ def memory_arm():
         return mem
     elif env == 'dcn':
         try:
-            # Baseado na memória disponível para o sistema
+            # Based on memory available to the system
             mem_info = psutil.virtual_memory()
-            return f"{mem_info.available // (1024 ** 2)}M"  # Converte para MiB
+            return f"{mem_info.available // (1024 ** 2)}M"  # Convert to MiB
         except Exception as e:
-            print(f"Erro ao capturar memória ARM: {e}")
+            print(f"Error capturing ARM memory: {e}")
             return "Unknown"
 
 
 def memory_gpu():
     """
-    Retorna a memória do dispositivo alocada para GPU.
+    Returns the device memory allocated for GPU.
 
     Returns:
-        str: Quantidade de memória alocada para a GPU.
+        str: Amount of memory allocated for the GPU.
     """
     if env == 'raspberry':
         mem_gpu = check_output(["vcgencmd", "get_mem", "gpu"]).decode("utf-8").replace('\n', '')
@@ -700,91 +742,91 @@ def memory_gpu():
 
 def memory_freq():
     """
-    Retorna a velocidade de clock da memória SDRAM.
+    Returns the SDRAM memory clock speed.
 
     Returns:
-        str: Frequência da memória em MHz ou 'Unknown' em caso de erro.
+        str: Memory frequency in MHz or 'Unknown' on error.
     """
     if env == 'raspberry':
         try:
-            # Executa o comando vcgencmd e captura a saída
+            # Executes the vcgencmd command and captures the output
             vcgencmd = Popen(['vcgencmd', 'get_config', 'int'], stdout=PIPE)
             sdram_freq = check_output(["grep", "sdram_freq"], stdin=vcgencmd.stdout).decode("utf-8").strip()
 
-            # Verifica se o valor foi encontrado
+            # Checks if the value was found
             if not sdram_freq:
-                raise ValueError("sdram_freq não encontrado na saída do comando.")
+                raise ValueError("sdram_freq not found in command output.")
 
-            # Extrai o valor após o '='
+            # Extracts the value after '='
             freq = sdram_freq.split('=')[1]
             return str(freq) + " MHz"
         except CalledProcessError:
-            # Caso o grep não encontre sdram_freq
-            print("Erro: 'sdram_freq' não encontrado. Retornando valor padrão.")
+            # In case grep doesn't find sdram_freq
+            print("Error: 'sdram_freq' not found. Returning default value.")
             return "Unknown"
         except IndexError:
-            # Caso o split não consiga acessar o índice [1]
-            print("Erro ao extrair o valor de 'sdram_freq'.")
+            # In case split can't access index [1]
+            print("Error extracting 'sdram_freq' value.")
             return "Unknown"
     elif env == 'dcn':
         try:
-            # Baseado em informações de hardware disponíveis no sistema
+            # Based on available hardware information on the system
             path = "/sys/class/dramfreq/dramfreq"
             if os.path.exists(path):
                 with open(path, "r") as f:
-                    freq_khz = int(f.read().strip())  # Em kHz
-                    freq_mhz = freq_khz // 1000  # Converte para MHz
+                    freq_khz = int(f.read().strip())  # In kHz
+                    freq_mhz = freq_khz // 1000  # Convert to MHz
                     return f"{freq_mhz} MHz"
             else:
-                print(f"Arquivo {path} não encontrado.")
+                print(f"File {path} not found.")
                 return "Unknown"
         except Exception as e:
-            print(f"Erro ao capturar frequência da memória: {e}")
+            print(f"Error capturing memory frequency: {e}")
             return "Unknown"
 
 
 def memory_used():
     """
-    Retorna a quantidade de memória utilizada.
+    Returns the amount of memory used.
 
     Returns:
-        str: Quantidade de memória utilizada em MiB.
+        str: Amount of memory used in MiB.
     """
     return str(int(psutil.virtual_memory()[3]/(2 ** 20)))
 
 def memory_percent_used():
     """
-    Retorna a porcentagem de memória utilizada.
+    Returns the percentage of memory used.
 
     Returns:
-        str: Porcentagem de memória utilizada.
+        str: Percentage of memory used.
     """
     return str(psutil.virtual_memory()[2])
 
 def memory_available():
     """
-    Retorna a quantidade de memória disponível.
+    Returns the amount of available memory.
 
     Returns:
-        str: Quantidade de memória disponível em MiB.
+        str: Amount of available memory in MiB.
     """
     return str(int(psutil.virtual_memory()[1]/(2 ** 20)))
 
 def memory_free():
     """
-    Retorna a quantidade de memória livre.
+    Returns the amount of free memory.
 
     Returns:
-        str: Quantidade de memória livre em MiB.
+        str: Amount of free memory in MiB.
     """
     return str(int(psutil.virtual_memory()[4]/(2 ** 20)))
 
 def memory_voltage():
     """
-    Retorna a tensão de alimentação lida pela memória SDRAM (sdram_i).
+    Returns the SDRAM memory supply voltage reading.
 
     Returns:
-        str: Tensão da memória SDRAM.
+        str: SDRAM memory voltage.
     """
     if env == 'raspberry':
         vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_i']).decode("utf-8").replace('\n', '')
@@ -792,66 +834,74 @@ def memory_voltage():
         return volt
     elif env == 'dcn':
         try:
-            path = "/sys/class/hwmon/hwmon0/in0_input"  # Substitua pelo caminho correto, se disponível
+            path = "/sys/class/hwmon/hwmon0/in0_input"  # Replace with the correct path if available
             if os.path.exists(path):
                 with open(path, "r") as f:
-                    volt_mv = int(f.read().strip())  # Em milivolts
-                    volt_v = volt_mv / 1000  # Converte para volts
+                    volt_mv = int(f.read().strip())  # In millivolts
+                    volt_v = volt_mv / 1000  # Convert to volts
                     return f"{volt_v:.2f}V"
             else:
-                print(f"Arquivo {path} não encontrado.")
+                print(f"File {path} not found.")
                 return "Unknown"
         except Exception as e:
-            print(f"Erro ao capturar tensão da memória: {e}")
+            print(f"Error capturing memory voltage: {e}")
             return "Unknown"
 
 
 def memory_voltage_c():
     """
-    Retorna a tensão de alimentação lida pela memória SDRAM (sdram_c).
+    Returns the SDRAM memory supply voltage reading (sdram_c).
 
     Returns:
-        str: Tensão da memória SDRAM.
+        str: SDRAM memory voltage.
     """
-    vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_c']).decode("utf-8").replace('\n', '')
-    volt = vcgencmd.split('=')[1]
-    return volt
+    if env == 'raspberry':
+        vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_c']).decode("utf-8").replace('\n', '')
+        volt = vcgencmd.split('=')[1]
+        return volt
+    elif env == 'dcn':
+        return "Unknown"
+    return "Unknown"
 
 def memory_voltage_p():
     """
-    Retorna a tensão de alimentação lida pela memória SDRAM (sdram_p).
+    Returns the SDRAM memory supply voltage reading (sdram_p).
 
     Returns:
-        str: Tensão da memória SDRAM.
+        str: SDRAM memory voltage.
     """
-    vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_p']).decode("utf-8").replace('\n', '')
-    volt = vcgencmd.split('=')[1]
-    return volt
+    if env == 'raspberry':
+        vcgencmd = check_output(['vcgencmd', 'measure_volts', 'sdram_p']).decode("utf-8").replace('\n', '')
+        volt = vcgencmd.split('=')[1]
+        return volt
+    elif env == 'dcn':
+        return "Unknown"
+    return "Unknown"
 
 def memory_buffers():
     """
-    Retorna a quantidade de memória de buffers.
+    Returns the amount of buffer memory.
 
     Returns:
-        str: Quantidade de memória de buffers em MiB.
+        str: Amount of buffer memory in MiB.
     """
     return str(int(psutil.virtual_memory()[7]/(2 ** 20)))
 
 def memory_cached():
     """
-    Retorna a quantidade de memória em cache.
+    Returns the amount of cached memory.
 
     Returns:
-        str: Quantidade de memória em cache em MiB.
+        str: Amount of cached memory in MiB.
     """
     return str(int(psutil.virtual_memory()[8]/(2 ** 20)))
 
 def memory_health():
     """
-    Retorna a saúde da memória baseado nas tensões de alimentação.
+    Returns memory health based on supply voltages.
 
     Returns:
-        str: "OK" se todas as tensões estiverem dentro do intervalo esperado, "Warning" caso contrário.
+        str: "OK" if all voltages are within expected range, "Warning" otherwise.
     """
     if env == 'raspberry':
         sdram_i = check_output(['vcgencmd', 'measure_volts', 'sdram_i']).decode("utf-8").replace('\n', '')
@@ -866,62 +916,62 @@ def memory_health():
             return "Warning"
     elif env == 'dcn':
         try:
-            # Obtem informações da memória com psutil
+            # Gets memory information with psutil
             mem = psutil.virtual_memory()
-            percent_used = mem.percent  # Percentual de memória utilizada
+            percent_used = mem.percent  # Memory usage percentage
 
-            # Define as condições para determinar a saúde
-            if percent_used < 80:  # Se menos de 80% da memória estiver sendo usada
+            # Sets the conditions to determine health status
+            if percent_used < 80:  # If less than 80% of memory is being used
                 return "OK"
             else:
                 return "Warning"
         except Exception as e:
-            print(f"Erro ao calcular a saúde da memória: {e}")
+            print(f"Error calculating memory health: {e}")
             return "Unknown"
 
 
 def swap_total():
     """
-    Retorna a memória de swap total do sistema.
+    Returns the total system swap memory.
 
     Returns:
-        str: Quantidade total de memória de swap em MiB.
+        str: Total amount of swap memory in MiB.
     """
     return str(int(psutil.swap_memory()[0]/(2 ** 20)))
 
 def swap_used():
     """
-    Retorna a memória de swap utilizada no momento.
+    Returns the swap memory currently in use.
 
     Returns:
-        str: Quantidade de memória de swap utilizada em MiB.
+        str: Amount of swap memory used in MiB.
     """
     return str(int(psutil.swap_memory()[1]/(2 ** 20)))
 
 def swap_free():
     """
-    Retorna a memória de swap livre no momento.
+    Returns the free swap memory.
 
     Returns:
-        str: Quantidade de memória de swap livre em MiB.
+        str: Amount of free swap memory in MiB.
     """
     return str(int(psutil.swap_memory()[2]/(2 ** 20)))
 
 def swap_percent():
     """
-    Retorna a porcentagem de uso da memória de swap.
+    Returns the swap memory usage percentage.
 
     Returns:
-        str: Porcentagem de uso da memória de swap.
+        str: Swap memory usage percentage.
     """
     return str(psutil.swap_memory()[3])
 
 def os_name():
     """
-    Retorna o nome do sistema operacional.
+    Returns the operating system name.
 
     Returns:
-        str: Nome do sistema operacional.
+        str: Operating system name.
     """
     cat = Popen(['cat', '/etc/os-release'], stdout=PIPE)
     pretty_name = check_output(["grep", "PRETTY_NAME"], stdin=cat.stdout).decode("utf-8").replace('\n', '')
@@ -930,10 +980,10 @@ def os_name():
 
 def os_version():
     """
-    Retorna a versão do sistema operacional.
+    Returns the operating system version.
 
     Returns:
-        str: Versão do sistema operacional.
+        str: Operating system version.
     """
     cat = Popen(['cat', '/etc/os-release'], stdout=PIPE)
     os_version = check_output(["grep", "VERSION_ID"], stdin=cat.stdout).decode("utf-8").replace('\n', '')
@@ -942,10 +992,10 @@ def os_version():
 
 def os_kernel_version():
     """
-    Retorna a versão do Kernel do sistema operacional.
+    Returns the operating system kernel version.
 
     Returns:
-        str: Versão do Kernel.
+        str: Kernel version.
     """
     hostnamectl = Popen(['hostnamectl'], stdout=PIPE)
     kernel_name = check_output(["grep", "Kernel"], stdin=hostnamectl.stdout).decode("utf-8").replace('\n', '')
@@ -960,28 +1010,28 @@ def os_kernel_version():
 
 def eth_count():
     """
-    Retorna a quantidade de interfaces de rede do sistema.
+    Returns the number of network interfaces in the system.
 
     Returns:
-        str: Número de interfaces de rede detectadas.
+        str: Number of detected network interfaces.
     """
     return str(len(psutil.net_if_addrs().keys()))
 
 def eth_names():
     """
-    Retorna o nome das interfaces de rede do sistema.
+    Returns the names of network interfaces in the system.
 
     Returns:
-        list: Lista com os nomes das interfaces de rede.
+        list: List with the names of network interfaces.
     """
     return list(psutil.net_if_addrs().keys())
 
 def eth_members():
     """
-    Retorna os endpoints da API para cada interface de rede do sistema.
+    Returns the API endpoints for each network interface in the system.
 
     Returns:
-        list: Lista de dicionários com o campo '@odata.id' para cada interface.
+        list: List of dictionaries with '@odata.id' field for each interface.
     """
     interface_names = psutil.net_if_addrs().keys()
     interfaces = []
@@ -993,31 +1043,31 @@ def eth_members():
 
 def eth_stats(iface: str):
     """
-    Retorna estatísticas de uma determinada interface de rede.
+    Returns statistics for a given network interface.
 
     Args:
-        iface (str): Nome lógico da interface de rede.
+        iface (str): Logical name of the network interface.
 
     Returns:
-        dict: Estatísticas da interface, incluindo MAC, velocidade, estado, endereços IP, DNS, etc.
+        dict: Interface statistics including MAC, speed, state, IP addresses, DNS, etc.
     """
     iface_addrs = psutil.net_if_addrs().get(iface, [])
     iface_stats = psutil.net_if_stats().get(iface, None)
 
     stats = {
         "mac_address": "00:00:00:00:00:00",
-        "speed_mbps": 0,  # Garantindo que seja int
-        "full_duplex": False,  # Garantindo que seja booleano
+        "speed_mbps": 0,  # Ensures this value is an int
+        "full_duplex": False,  # Ensures this value is a boolean
         "state": "Disabled",
-        "link_status": "NoLink",  # Valor padrão caso não seja detectado
-        "ipv6_gateway": None,  # IPv6 gateway removido pois não está sendo usado
+        "link_status": "NoLink",  # Default value if not detected
+        "ipv6_gateway": None,  # IPv6 gateway removed as it's not being used
         "dns": [],
         "ipv4_addresses": [],
         "ipv6_addresses": [],
-        "IPv4StaticAddresses": []  # Para armazenar gateway separado
+        "IPv4StaticAddresses": []  # Stores gateway separately
     }
 
-    # Coletando servidores DNS
+    # Collecting DNS servers
     nmcli1 = Popen(['nmcli', 'dev', 'show', iface], stdout=PIPE)
     is_there_dns = call(["grep", "DNS"], stdin=nmcli1.stdout, stdout=DEVNULL, stderr=STDOUT)
     if is_there_dns == 0:
@@ -1027,16 +1077,16 @@ def eth_stats(iface: str):
         for line in dns_break_lines:
             stats['dns'].append(line.split()[1])
 
-    # Pegando informações das interfaces
+    # Getting interface information
     for snicaddr in iface_addrs:
         if snicaddr.family == 2:  # IPv4
             nmcli2 = Popen(['nmcli', 'dev', 'show', iface], stdout=PIPE)
             gateway_parse = check_output(["grep", "IP4.GATEWAY"], stdin=nmcli2.stdout).decode("utf-8").replace('\n', '')
             gateway = gateway_parse.split()[1] if "IP4.GATEWAY" in gateway_parse else "0.0.0.0"
 
-            # Verifica se o gateway é um IP válido
+            # Checks if the gateway is a valid IP address
             if re.match(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", gateway):
-                stats["IPv4StaticAddresses"].append({"Address": gateway})  # Mantém separado do IPv4Addresses
+                stats["IPv4StaticAddresses"].append({"Address": gateway})  # Keeps separate from IPv4Addresses
 
             stats['ipv4_addresses'].append({
                 "Address": snicaddr.address,
@@ -1057,7 +1107,7 @@ def eth_stats(iface: str):
         elif snicaddr.family == 17:  # MAC Address
             stats['mac_address'] = snicaddr.address
 
-    # Ajustando estado da interface
+    # Adjusting interface state
     if iface_stats and iface_stats.isup:
         stats['state'] = "Enabled"
         stats['link_status'] = "LinkUp"
@@ -1066,7 +1116,7 @@ def eth_stats(iface: str):
         stats['link_status'] = "NoLink"
 
     if iface_stats and iface_stats.duplex == 2:
-        stats['full_duplex'] = True  # Converte para booleano
+        stats['full_duplex'] = True  # Convert to boolean
 
     stats['speed_mbps'] = iface_stats.speed if iface_stats and iface_stats.speed > 0 else 1000  # Default para 1Gbps
 
@@ -1074,10 +1124,10 @@ def eth_stats(iface: str):
 
 def storage_count():
     """
-    Retorna a quantidade de dispositivos de armazenamento conectados ao sistema.
+    Returns the number of storage devices connected to the system.
 
     Returns:
-        int: Número de dispositivos de armazenamento detectados.
+        int: Number of detected storage devices.
     """
     lsblk = Popen(['lsblk'], stdout=PIPE)
     disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
@@ -1086,10 +1136,10 @@ def storage_count():
 
 def storage_members():
     """
-    Retorna as URLs dos endpoints da API para dispositivos de armazenamento conectados.
+    Returns the API endpoint URLs for storage devices connected to the system.
 
     Returns:
-        list: Lista de dicionários com o campo '@odata.id' para cada dispositivo.
+        list: List of dictionaries with '@odata.id' field for each device.
     """
     lsblk = Popen(['lsblk'], stdout=PIPE)
     disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
@@ -1104,10 +1154,10 @@ def storage_members():
 
 def storage_names():
     """
-    Retorna os nomes lógicos dos dispositivos de armazenamento conectados.
+    Returns the logical names of connected storage devices.
 
     Returns:
-        list: Lista com os nomes dos dispositivos de armazenamento.
+        list: List with the names of storage devices.
     """
     lsblk = Popen(['lsblk'], stdout=PIPE)
     disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
@@ -1120,13 +1170,13 @@ def storage_names():
 
 def storage_stats(device):
     """
-    Retorna estatísticas de um determinado dispositivo de armazenamento.
+    Returns statistics for a given storage device.
 
     Args:
-        device (str): Nome lógico do dispositivo.
+        device (str): Logical name of the device.
 
     Returns:
-        dict: Dicionário com informações como nome, descrição, fabricante, modelo e capacidade.
+        dict: Dictionary with information such as name, description, manufacturer, model and capacity.
     """
     stats = {
         'name': "Unknown",
@@ -1151,10 +1201,10 @@ def storage_stats(device):
                     stats['manufacturer'] = entry.get('vendor', stats['manufacturer'])
                     stats['model'] = entry.get('product', stats['model'])
                     stats['capacitybytes'] = entry.get('size', stats['capacitybytes'])
-                    break  # Encontrou, pode parar
+                    break  # Found target device, can stop here
 
         except Exception as e:
-            print(f"Erro ao obter informações via lshw: {e}")
+            print(f"Error getting information via lshw: {e}")
 
     elif env == 'dcn':
         try:
@@ -1171,29 +1221,29 @@ def storage_stats(device):
                     stats['device_name'] = blk_device.get('name', stats['device_name'])
                     stats['model'] = blk_device.get('model', stats['model'])
                     stats['capacitybytes'] = blk_device.get('size', stats['capacitybytes'])
-                    break  # Encontrou, pode parar
+                    break  # Found target device, can stop here
 
         except Exception as e:
-            print(f"Erro ao obter informações via lsblk: {e}")
+            print(f"Error getting information via lsblk: {e}")
 
     return stats
 
 
 def session_count():
     """
-    Retorna a quantidade de sessões ativas no sistema.
+    Returns the number of active sessions in the system.
 
     Returns:
-        int: Número de sessões de usuários atualmente ativas.
+        int: Number of currently active user sessions.
     """
     return len(psutil.users())
 
 def session_members():
     """
-    Retorna os endpoints relativos a cada sessão ativa.
+    Returns endpoints relative to each active session.
 
     Returns:
-        list: Lista de dicionários com o campo '@odata.id' para cada sessão ativa.
+        list: List of dictionaries with '@odata.id' field for each active session.
     """
     members = []
     for session in psutil.users():
@@ -1204,13 +1254,13 @@ def session_members():
 
 def session_login_time(user):
     """
-    Retorna a data e hora de login do usuário especificado.
+    Returns the login date and time for the specified user.
 
     Args:
-        user (str): Nome do usuário.
+        user (str): User name.
 
     Returns:
-        str: Data e hora do login no formato ISO 8601, ou "Unknown" se não encontrado.
+        str: Login date and time in ISO 8601 format, or "Unknown" if not found.
     """
     for session in psutil.users():
         if session[0] == user:
@@ -1219,10 +1269,10 @@ def session_login_time(user):
 
 def process_counter():
     """
-    Retorna a quantidade de processos alocados no sistema.
+    Returns the number of processes allocated in the system.
 
     Returns:
-        int: Número de processos em execução.
+        int: Number of running processes.
     """
     process_parse = check_output(["ps", "-eo", "pid,lstart,cmd"]).decode("utf-8")
     process = process_parse.split('\n')[1:-2]
@@ -1230,10 +1280,10 @@ def process_counter():
 
 def process_pids():
     """
-    Retorna a lista de PIDs dos processos alocados.
+    Returns the list of PIDs of allocated processes.
 
     Returns:
-        list: Lista de strings com os PIDs dos processos.
+        list: List of strings with process PIDs.
     """
     processes_parse = check_output(["ps", "-eo", "pid"]).decode("utf-8")
     processes = processes_parse.split('\n')[1:-2]
@@ -1244,10 +1294,10 @@ def process_pids():
 
 def process_members():
     """
-    Retorna as URLs dos endpoints referentes a cada processo.
+    Returns the endpoint URLs for each process.
 
     Returns:
-        list: Lista de dicionários com '@odata.id' e nome do processo.
+        list: List of dictionaries with '@odata.id' and process name.
     """
     processes_parse = check_output(["ps", "-eo", "pid,lstart,cmd"]).decode("utf-8")
     processes = processes_parse.split('\n')[1:-2]
@@ -1260,13 +1310,13 @@ def process_members():
 
 def process_stats(pid):
     """
-    Retorna status de monitoramento de um processo especificado.
+    Returns monitoring status for a specified process.
 
     Args:
-        pid (str): PID do processo.
+        pid (str): Process PID.
 
     Returns:
-        dict: Dicionário com informações do processo (pid, start_time, name, status).
+        dict: Dictionary with process information (pid, start_time, name, status).
     """
     processes_parse = check_output(["ps", "-eo", "pid,lstart,s,cmd"]).decode("utf-8")
     processes = processes_parse.split('\n')[1:-2]
@@ -1315,95 +1365,95 @@ def process_stats(pid):
 
 ASSET_TAG_FILE = "asset_tag.json"
 
-def generate_asset_tag():   # FAZER ESCRITA
+def generate_asset_tag():   # MAKE WRITE
     """
-    Gera um AssetTag baseado no número de série da Raspberry Pi.
+    Generates an AssetTag based on the Raspberry Pi serial number.
 
     Returns:
-        str: AssetTag no formato 'RPI2-{SerialNumber}'. Retorna 'RPI2-UNKNOWN' em caso de erro.
+        str: AssetTag in format 'RPI2-{SerialNumber}'. Returns 'RPI2-UNKNOWN' on error.
     """
     try:
-        serial_number = serial().strip()  # Remove espaços ou quebras de linha
+        serial_number = serial().strip()  # Removes spaces or line breaks
         
-        # Remove caracteres nulos (se ainda houver)
+        # Removes null characters (if still present)
         serial_number = serial_number.replace('\u0000', '')
 
-        # Remove zeros à esquerda
+        # Removes leading zeros
         serial_number_compact = serial_number.lstrip('0')
 
-        # Caso o número de série seja vazio após os ajustes
+        # In case serial number is empty after adjustments
         if not serial_number_compact:
             serial_number_compact = "UNKNOWN"
 
         return f"RPI2-{serial_number_compact}"
     except Exception as e:
-        print(f"Erro ao gerar AssetTag: {e}")
+        print(f"Error generating AssetTag: {e}")
         return "RPI2-UNKNOWN"
 
-_asset_tag = None  # Variável global para armazenar o AssetTag
+_asset_tag = None  # Global variable to store the AssetTag
 
 def load_asset_tag():
     """
-    Carrega o AssetTag do arquivo. Gera um novo se o arquivo não existir ou estiver corrompido.
+    Loads the AssetTag from file. Generates a new one if the file doesn't exist or is corrupted.
     """
     global _asset_tag
-    if os.path.exists(ASSET_TAG_FILE):  # Verifica se o arquivo existe
+    if os.path.exists(ASSET_TAG_FILE):  # Checks if the file exists
         try:
-            with open(ASSET_TAG_FILE, "r") as f:    # Abre o arquivo em modo leitura
-                data = json.load(f)                 # Carrega o JSON do arquivo
-                _asset_tag = data.get("AssetTag", generate_asset_tag())     # Usa o valor ou gera um novo
+            with open(ASSET_TAG_FILE, "r") as f:    # Opens the file in read mode
+                data = json.load(f)                 # Loads JSON from the file
+                _asset_tag = data.get("AssetTag", generate_asset_tag())     # Uses existing value or generates a new one
         except Exception as e:
-            print(f"Erro ao carregar o AssetTag: {e}")
-            _asset_tag = generate_asset_tag()               # Gera um valor em caso de erro
+            print(f"Error loading AssetTag: {e}")
+            _asset_tag = generate_asset_tag()               # Generates a value in case of error
     else:
-        _asset_tag = generate_asset_tag()                   # Gera um novo valor se o arquivo não existir
+        _asset_tag = generate_asset_tag()                   # Generates a new value if file doesn't exist
 
 def save_asset_tag():
     """
-    Salva o AssetTag atual no arquivo.
+    Saves the current AssetTag to file.
     """
     global _asset_tag
     try:
-        with open(ASSET_TAG_FILE, "w") as f:        # Abre o arquivo em modo escrita
-            json.dump({"AssetTag": _asset_tag}, f)  # Salva o valor em formato JSON
+        with open(ASSET_TAG_FILE, "w") as f:        # Opens the file in write mode
+            json.dump({"AssetTag": _asset_tag}, f)  # Saves the value in JSON format
     except Exception as e:
-        print(f"Erro ao salvar o AssetTag: {e}")    # Registra qualquer erro ocorrido
+        print(f"Error saving AssetTag: {e}")    # Logs any error that occurred
 
 def get_asset_tag():
     """
-    Retorna o AssetTag. Gera um novo se ainda não estiver definido.
+    Returns the AssetTag. Generates a new one if not yet defined.
 
     Returns:
-        str: AssetTag atual.
+        str: Current AssetTag.
     """
     global _asset_tag
-    if _asset_tag is None:                      # Verifica se o valor ainda não foi carregado
-        _asset_tag = generate_asset_tag()       # Carrega o valor do arquivo
-    return _asset_tag                           # Retorna o valor atual do AssetTag
+    if _asset_tag is None:                      # Checks if the value hasn't been loaded yet
+        _asset_tag = generate_asset_tag()       # Loads the value from file
+    return _asset_tag                           # Returns the current AssetTag value
 
 def set_asset_tag(new_tag):
     """
-    Atualiza o valor do AssetTag e salva no arquivo.
+    Updates the AssetTag value and saves to file.
 
     Args:
-        new_tag (str): Novo valor para o AssetTag.
+        new_tag (str): New value for the AssetTag.
     """
     global _asset_tag
-    _asset_tag = new_tag            # Atualiza a variável global com o novo valor
-    save_asset_tag()                # Salva o novo valor no arquivo
+    _asset_tag = new_tag            # Updates the global variable with the new value
+    save_asset_tag()                # Saves the new value to file
 
 
 
 def get_chassis_type():
     """
-    Determina o ChassisType da Raspberry Pi.
+    Determines the ChassisType of the Raspberry Pi.
 
     Returns:
-        str: Tipo físico do chassi, por padrão "StandAlone".
-            - "StandAlone" para dispositivos independentes e autossuficientes
-            - "Enclosure" para caixas que contêm componentes ou dispositivos
-            - "RackMount" para instalação em rack
-            - "Blade" para servidores blade
+        str: Physical type of the chassis, by default "StandAlone".
+            - "StandAlone" for independent and self-sufficient devices
+            - "Enclosure" for enclosures containing components or devices
+            - "RackMount" for rack installation
+            - "Blade" for blade servers
     """
     chassis_type = "StandAlone"  
     return chassis_type       
@@ -1411,34 +1461,34 @@ def get_chassis_type():
 
 def get_sku():
     """
-    Retorna o SKU (Stock Keeping Unit) do dispositivo.
+    Returns the SKU (Stock Keeping Unit) of the device.
 
     Returns:
-        str: Código SKU do dispositivo. Valor fixo, pois não é possível obter automaticamente.
+        str: SKU code of the device. Fixed value, since it cannot be obtained automatically.
     """
-    sku = "6914260"      # Tentar pegar o valor de forma automatica usando o check_output
+    sku = "6914260"      # Try to get this value automatically using check_output
     return sku
 
 
 def get_part_number():
     """
-    Retorna o número de peça (Part Number) do dispositivo.
+    Returns the part number (Part Number) of the device.
 
     Returns:
-        str: Número de peça do dispositivo. Valor fixo, pois não está disponível diretamente no hardware.
+        str: Part number of the device. Fixed value, as it is not available directly in hardware.
     """
-    part_number = "832-6274"    # Informação fornecida na especificação do fabricante. 
-                                # Aparentemente, não está disponível diretamente no hardware
+    part_number = "832-6274"    # Information provided in manufacturer specification. 
+                                # Apparently, not available directly in hardware
     return part_number
 
 
 
 def get_power():
     """
-    Retorna as propriedades de energia do sistema.
+    Returns the power properties of the system.
 
     Returns:
-        dict: Dicionário com informações sobre fontes de alimentação e sensores de tensão.
+        dict: Dictionary with information about power supplies and voltage sensors.
     """
     return {
         "PowerSupplies": [
@@ -1469,19 +1519,21 @@ def get_power():
 
 def get_thermal():
     """
-    Retorna as propriedades térmicas do sistema.
+    Returns the thermal properties of the system.
 
     Returns:
-        dict: Dicionário com informações sobre temperaturas do sistema.
+        dict: Dictionary with information about system temperatures.
     """
+    reading = cpu_temp()
+    state = "Enabled" if reading is not None else "UnavailableOffline"
     return {
         "Temperatures": [
             {
                 "Name": "CPU Temperature",
-                "ReadingsCelsius": f"{float(cpu_temp()):.1f}",
+                "ReadingsCelsius": reading,
                 "Status": {
                     "Health": temp_health(),
-                    "State": "Enabled"
+                    "State": state
                 }
             }
         ],
@@ -1489,14 +1541,14 @@ def get_thermal():
 
 def get_system_type():
     """
-    Retorna o tipo de sistema representado pelo recurso ComputerSystem.
+    Returns the system type represented by the ComputerSystem resource.
 
     Returns:
-        str: Tipo do sistema, por padrão "Physical".
+        str: System type, default "Physical".
     """
     return "Physical"
 
-# Valores iniciais padrão
+# Default initial values
 data_store = {
     "ServiceEnabled": True,
     "AccountLockoutCounterResetAfter": 30,
@@ -1507,19 +1559,19 @@ data_store = {
 
 def get_account_service_data():
     """
-    Retorna os dados atuais do AccountService.
+    Returns the current AccountService data.
 
     Returns:
-        dict: Dicionário com os valores atuais do AccountService.
+        dict: Dictionary with the current AccountService values.
     """
     return data_store
 
 def update_account_service_data(new_data):
     """
-    Atualiza os dados do AccountService com as informações enviadas no PATCH.
+    Updates AccountService data with information sent in PATCH request.
 
     Args:
-        new_data (dict): Dicionário contendo as chaves e valores a serem atualizados.
+        new_data (dict): Dictionary containing the keys and values to be updated.
     """
     for key, value in new_data.items():
         if key in data_store:
@@ -1531,95 +1583,95 @@ SETTINGS_FILE = "event_service_settings.json"
 
 def load_settings():
     """
-    Carrega as configurações do serviço de eventos a partir de um arquivo JSON.
+    Loads event service settings from a JSON file.
 
     Returns:
-        dict: Dicionário com as configurações carregadas. Retorna um dicionário vazio em caso de erro ou se o arquivo não existir.
+        dict: Dictionary with loaded settings. Returns an empty dictionary on error or if the file doesn't exist.
     """
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Erro ao carregar as configurações: {e}")
+            print(f"Error loading configurations: {e}")
             return {}
     else:
         return {}
 
 def save_settings(settings):
     """
-    Salva as configurações do serviço de eventos em um arquivo JSON.
+    Saves event service settings to a JSON file.
 
     Args:
-        settings (dict): Dicionário com as configurações a serem salvas.
+        settings (dict): Dictionary with the settings to be saved.
     """
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f, indent=4)
     except Exception as e:
-        print(f"Erro ao salvar as configurações: {e}")
+        print(f"Error saving configurations: {e}")
 
-# Funções específicas para DeliveryRetryAttempts
+# Specific functions for DeliveryRetryAttempts
 def get_delivery_retry_attempts():
     """
-    Retorna o número de tentativas de reentrega configuradas para eventos.
+    Returns the number of retry attempts configured for events.
 
     Returns:
-        int: Número de tentativas de reentrega. Valor padrão é 3.
+        int: Number of retry attempts. Default value is 3.
     """
     settings = load_settings()
     return settings.get("DeliveryRetryAttempts", 3)
 
 def set_delivery_retry_attempts(value):
     """
-    Atualiza o número de tentativas de reentrega para eventos.
+    Updates the number of retry attempts for events.
 
     Args:
-        value (int): Novo valor para tentativas de reentrega.
+        value (int): New value for retry attempts.
     """
     settings = load_settings()
     settings["DeliveryRetryAttempts"] = value
     save_settings(settings)
 
-# Funções específicas para DeliveryRetryIntervalSeconds
+# Specific functions for DeliveryRetryIntervalSeconds
 def get_delivery_retry_interval_seconds():
     """
-    Retorna o intervalo (em segundos) entre tentativas de reentrega de eventos.
+    Returns the interval (in seconds) between event delivery retry attempts.
 
     Returns:
-        int: Intervalo em segundos. Valor padrão é 5.
+        int: Interval in seconds. Default value is 5.
     """
     settings = load_settings()
     return settings.get("DeliveryRetryIntervalSeconds", 5)
 
 def set_delivery_retry_interval_seconds(value):
     """
-    Atualiza o intervalo entre tentativas de reentrega de eventos.
+    Updates the interval between event delivery retry attempts.
 
     Args:
-        value (int): Novo valor para o intervalo em segundos.
+        value (int): New value for the interval in seconds.
     """
     settings = load_settings()
     settings["DeliveryRetryIntervalSeconds"] = value
     save_settings(settings)
 
-# Funções específicas para ServiceEnabled
+# Specific functions for ServiceEnabled
 def get_service_enabled():
     """
-    Retorna o status do serviço de eventos (habilitado ou não).
+    Returns the status of the event service (enabled or not).
 
     Returns:
-        bool: True se o serviço estiver habilitado, False caso contrário. Valor padrão é True.
+        bool: True if the service is enabled, False otherwise. Default value is True.
     """
     settings = load_settings()
     return settings.get("ServiceEnabled", True)
 
 def set_service_enabled(value):
     """
-    Atualiza o status do serviço de eventos.
+    Updates the status of the event service.
 
     Args:
-        value (bool): True para habilitar, False para desabilitar.
+        value (bool): True to enable, False to disable.
     """
     settings = load_settings()
     settings["ServiceEnabled"] = value
@@ -1627,16 +1679,16 @@ def set_service_enabled(value):
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Caminho do arquivo de logs
+# Log file path
 LOG_FILE = "log_entries.json"
 
 def load_log_entries():
     """
-    Carrega as entradas de log do arquivo JSON.
+    Loads log entries from a JSON file.
 
     Returns:
-        list: Lista de dicionários representando as entradas de log.
-              Retorna uma lista vazia se o arquivo não existir ou estiver vazio/corrompido.
+        list: List of dictionaries representing log entries.
+              Returns an empty list if the file doesn't exist or is empty/corrupted.
     """
     try:
         if os.path.exists(LOG_FILE):
@@ -1644,36 +1696,36 @@ def load_log_entries():
                 return json.load(file)
         return []
     except Exception as e:
-        print(f"Erro ao carregar log entries: {e}")
+        print(f"Error loading log entries: {e}")
         return []
 
 def save_log_entries(entries):
     """
-    Salva as entradas de log no arquivo JSON.
+    Saves log entries to a JSON file.
 
     Args:
-        entries (list): Lista de dicionários representando as entradas de log.
+        entries (list): List of dictionaries representing log entries.
     """
     try:
         with open(LOG_FILE, "w") as file:
             json.dump(entries, file, indent=4)
     except Exception as e:
-        print(f"Erro ao salvar log entries: {e}")
+        print(f"Error saving log entries: {e}")
 
 def create_log_entry(entry_type, severity, message, message_id=None, event_id=None, entry_code=None):
     """
-    Cria uma nova entrada de log e a salva no arquivo.
+    Creates a new log entry and saves it to file.
 
     Args:
-        entry_type (str): Tipo da entrada de log (ex: 'Event', 'Alert').
-        severity (str): Severidade do evento (ex: 'OK', 'Warning', 'Critical').
-        message (str): Mensagem descritiva do evento.
-        message_id (str, optional): Identificador da mensagem.
-        event_id (str, optional): Identificador do evento.
-        entry_code (str, optional): Código da entrada.
+        entry_type (str): Type of log entry (ex: 'Event', 'Alert').
+        severity (str): Severity of the event (ex: 'OK', 'Warning', 'Critical').
+        message (str): Descriptive message of the event.
+        message_id (str, optional): Message identifier.
+        event_id (str, optional): Event identifier.
+        entry_code (str, optional): Entry code.
 
     Returns:
-        dict: Dicionário representando a nova entrada de log criada.
+        dict: Dictionary representing the new log entry created.
     """
     entries = load_log_entries()
     new_entry = {
@@ -1691,83 +1743,83 @@ def create_log_entry(entry_type, severity, message, message_id=None, event_id=No
 
 def clear_logs():
     """
-    Limpa todas as entradas de log do arquivo JSON.
+    Clears all log entries from the JSON file.
 
-    Esta função sobrescreve o arquivo de log com uma lista vazia.
+    This function overwrites the log file with an empty list.
     """
     try:
-        # Verifica se o arquivo de logs existe
+        # Checks if the log file exists
         if os.path.exists(LOG_FILE):
-            # Escreve uma lista vazia no arquivo para limpar os logs
+            # Writes an empty list to the file to clear logs
             with open(LOG_FILE, 'w') as log_file:
                 json.dump([], log_file)
-            print("Logs limpos com sucesso!")
+            print("Logs successfully cleared!")
         else:
-            print(f"Arquivo {LOG_FILE} não encontrado, nada para limpar.")
+            print(f"File {LOG_FILE} not found, nothing to clean.")
     except Exception as e:
-        print(f"Erro ao limpar os logs: {e}")
+        print(f"Error clearing logs: {e}")
 
 
 def get_max_records():
     """
-    Retorna o número máximo de registros de log suportados.
+    Returns the maximum number of supported log records.
 
     Returns:
-        int: Número máximo de registros.
+        int: Maximum number of records.
     """
-    return 1000  # Número máximo de registros suportados
+    return 1000  # Maximum number of supported records
 
 def get_overwrite_policy():
     """
-    Retorna a política de sobrescrita dos logs.
+    Returns the log overwrite policy.
 
     Returns:
-        str: Política de sobrescrita (ex: 'WrapsWhenFull').
+        str: Overwrite policy (ex: 'WrapsWhenFull').
     """
-    return "WrapsWhenFull"  # Política de sobrescrita
+    return "WrapsWhenFull"  # Overwrite policy
 
 #-----------------------------------------------------------------------------------------------------------------------
 
 # CommandShell
 def get_command_shell_service_enabled():
     """
-    Retorna se o serviço CommandShell está habilitado.
+    Returns whether the CommandShell service is enabled.
 
     Returns:
-        bool: True se o serviço estiver habilitado, False caso contrário.
+        bool: True if the service is enabled, False otherwise.
     """
-    return True  # Padrão habilitado
+    return True  # Default enabled
 
 def set_command_shell_service_enabled(value):
     """
-    Atualiza o status do serviço CommandShell.
+    Updates the CommandShell service status.
 
     Args:
-        value (bool): True para habilitar, False para desabilitar.
+        value (bool): True to enable, False to disable.
     """
-    # Lógica para atualizar a configuração
-    print(f"CommandShell ServiceEnabled atualizado para {value}")
+    # Logic to update the configuration
+    print(f"CommandShell ServiceEnabled updated to {value}")
 
 def get_command_shell_max_sessions():
     """
-    Retorna o número máximo de sessões concorrentes permitidas para o CommandShell.
+    Returns the maximum number of concurrent sessions allowed for CommandShell.
 
     Returns:
-        int: Número máximo de sessões concorrentes.
+        int: Maximum number of concurrent sessions.
     """
-    return 5  # Número máximo de sessões concorrentes
+    return 5  # Maximum number of concurrent sessions
 
 def get_command_shell_connect_types():
     """
-    Retorna os tipos de conexão suportados pelo CommandShell.
+    Returns the connection types supported by CommandShell.
 
     Returns:
-        list: Lista de strings com os tipos de conexão suportados.
+        list: List of strings with the supported connection types.
     """
-    return ["SSH", "Telnet"]  # Tipos suportados
+    return ["SSH", "Telnet"]  # Supported types
 
 
-# Arquivos de armazenamento
+# Storage files
 DATE_TIME_FILE = "datetime.json"
 DATE_TIME_OFFSET_FILE = "datetime_offset.json"
 SERVICE_ENABLED_FILE = "service_enabled.json"
@@ -1775,10 +1827,10 @@ SERVICE_ENABLED_FILE = "service_enabled.json"
 # DateTime
 def get_datetime():
     """
-    Retorna o valor atual do DateTime.
+    Returns the current DateTime value.
 
     Returns:
-        str: Data e hora atual no formato ISO 8601 (UTC), ou valor salvo no arquivo se existir.
+        str: Current date and time in ISO 8601 format (UTC), or saved value from file if it exists.
     """
     try:
         if os.path.exists(DATE_TIME_FILE):
@@ -1788,33 +1840,39 @@ def get_datetime():
                     data = json.loads(content)
                     return data.get("DateTime", datetime.utcnow().isoformat() + "Z")
                 else:
-                    print("Arquivo datetime.json está vazio.")
+                    print("File datetime.json is empty.")
         return datetime.utcnow().isoformat() + "Z"
     except Exception as e:
-        print(f"Erro ao carregar DateTime: {e}")
+        print(f"Error loading DateTime: {e}")
         return datetime.utcnow().isoformat() + "Z"
 
 
 def set_datetime(new_datetime):
     """
-    Atualiza o valor de DateTime.
+    Updates the DateTime value.
 
     Args:
-        new_datetime (str): Nova data/hora no formato ISO 8601.
+        new_datetime (str): New date/time in ISO 8601 format.
     """
     if not new_datetime:
-        print("DateTime inválido, nada foi salvo.")
+        print("Invalid DateTime, nothing was saved.")
         return
     try:
         with open(DATE_TIME_FILE, "w") as file:
             json.dump({"DateTime": new_datetime}, file)
-            print(f"DateTime atualizado para {new_datetime}")
+            print(f"DateTime updated to {new_datetime}")
     except Exception as e:
-        print(f"Erro ao atualizar DateTime: {e}")
+        print(f"Error updating DateTime: {e}")
 
 
 # DateTimeLocalOffset
 def get_datetime_offset():
+    """
+    Returns the current DateTimeLocalOffset value.
+
+    Returns:
+        str: Saved local time offset, or '+00:00' as default.
+    """
     try:
         if os.path.exists(DATE_TIME_OFFSET_FILE):
             with open(DATE_TIME_OFFSET_FILE, "r") as file:
@@ -1823,177 +1881,177 @@ def get_datetime_offset():
                     data = json.loads(content)
                     return data.get("DateTimeLocalOffset", "+00:00")
                 else:
-                    print("Arquivo datetime_offset.json está vazio.")
+                    print("File datetime_offset.json is empty.")
         return "+00:00"
     except Exception as e:
-        print(f"Erro ao carregar DateTimeLocalOffset: {e}")
+        print(f"Error loading DateTimeLocalOffset: {e}")
         return "+00:00"
 
 def set_datetime_offset(offset):
     """
-    Atualiza o offset de tempo local.
+    Updates the local time offset.
 
     Args:
-        offset (str): Novo offset de tempo local (ex: '+00:00').
+        offset (str): New local time offset (ex: '+00:00').
     """
     try:
         with open(DATE_TIME_OFFSET_FILE, "w") as file:
             json.dump({"DateTimeLocalOffset": offset}, file)
-            print(f"DateTimeLocalOffset atualizado para {offset}")
+            print(f"DateTimeLocalOffset updated to {offset}")
     except Exception as e:
-        print(f"Erro ao atualizar DateTimeLocalOffset: {e}")
+        print(f"Error updating DateTimeLocalOffset: {e}")
 
 
 # ServiceEnabled
 def get_service_enabled():
     """
-    Retorna o status atual do ServiceEnabled.
+    Returns the current ServiceEnabled status.
 
     Returns:
-        bool: True se o serviço estiver habilitado, False caso contrário.
+        bool: True if the service is enabled, False otherwise.
     """
     try:
         if os.path.exists(SERVICE_ENABLED_FILE):
             with open(SERVICE_ENABLED_FILE, "r") as file:
                 data = json.load(file)
-                return data.get("ServiceEnabled", True)  # Padrão True
+                return data.get("ServiceEnabled", True)  # Default True
         return True
     except Exception as e:
-        print(f"Erro ao carregar ServiceEnabled: {e}")
+        print(f"Error loading ServiceEnabled: {e}")
         return True
 
 def set_service_enabled(enabled):
     """
-    Atualiza o status de ServiceEnabled.
+    Updates the ServiceEnabled status.
 
     Args:
-        enabled (bool): True para habilitar, False para desabilitar.
+        enabled (bool): True to enable, False to disable.
     """
     try:
         with open(SERVICE_ENABLED_FILE, "w") as file:
             json.dump({"ServiceEnabled": enabled}, file)
-            print(f"ServiceEnabled atualizado para {enabled}")
+            print(f"ServiceEnabled updated to {enabled}")
     except Exception as e:
-        print(f"Erro ao atualizar ServiceEnabled: {e}")
+        print(f"Error updating ServiceEnabled: {e}")
 
 
 
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Arquivos de armazenamento
+# Storage files
 FQDN_FILE = "fqdn.json"
 HTTPS_CONFIG_FILE = "https_config.json"
 
 # FQDN
 def get_fqdn():
     """
-    Retorna o Fully Qualified Domain Name (FQDN).
+    Returns the Fully Qualified Domain Name (FQDN).
 
-    Se o arquivo não existir ou estiver corrompido, retorna o FQDN do sistema obtido via socket.
+    If the file doesn't exist or is corrupted, returns the system FQDN obtained via socket.
 
     Returns:
-        str: FQDN salvo no arquivo ou o FQDN do sistema.
+        str: FQDN saved in file or the system FQDN.
     """
     try:
-        # Verifica se o arquivo FQDN_FILE existe
+        # Checks if FQDN_FILE exists
         if os.path.exists(FQDN_FILE):
             with open(FQDN_FILE, "r") as file:
-                data = json.load(file)  # Carrega o JSON do arquivo
-                return data.get("FQDN", socket.getfqdn())  # Retorna o valor ou o FQDN do sistema
+                data = json.load(file)  # Loads JSON from file
+                return data.get("FQDN", socket.getfqdn())  # Returns the value or system FQDN
         else:
-            # Retorna o FQDN do sistema se o arquivo não existir
+            # Returns system FQDN if file does not exist
             return socket.getfqdn()
     except json.JSONDecodeError as e:
-        # Captura erros no formato JSON
-        print(f"Erro ao decodificar o arquivo FQDN: {e}")
+        # Captures JSON format errors
+        print(f"Error decoding FQDN file: {e}")
         return socket.getfqdn()
     except Exception as e:
-        # Captura outros erros genéricos
-        print(f"Erro ao carregar FQDN: {e}")
+        # Captures other generic errors
+        print(f"Error loading FQDN: {e}")
         return socket.getfqdn()
 
 def set_fqdn(fqdn):
     """
-    Atualiza o FQDN.
+    Updates the FQDN.
 
     Args:
-        fqdn (str): Novo Fully Qualified Domain Name a ser salvo.
+        fqdn (str): New Fully Qualified Domain Name to save.
     """
     try:
         with open(FQDN_FILE, "w") as file:
             json.dump({"FQDN": fqdn}, file)
-            print(f"FQDN atualizado para {fqdn}")
+            print(f"FQDN updated to {fqdn}")
     except Exception as e:
-        print(f"Erro ao atualizar FQDN: {e}")
+        print(f"Error updating FQDN: {e}")
 
 
 # HTTPS.Port
 def get_https_port():
     """
-    Retorna a porta HTTPS.
+    Returns the HTTPS port.
 
     Returns:
-        int: Porta HTTPS configurada. Valor padrão é 443.
+        int: Configured HTTPS port. Default value is 443.
     """
     try:
         if os.path.exists(HTTPS_CONFIG_FILE):
             with open(HTTPS_CONFIG_FILE, "r") as file:
                 data = json.load(file)
-                return data.get("Port", 443)  # Porta padrão 443
+                return data.get("Port", 443)  # Default port 443
         return 443
     except Exception as e:
-        print(f"Erro ao carregar HTTPS.Port: {e}")
+        print(f"Error loading HTTPS.Port: {e}")
         return 443
 
 def set_https_port(port):
     """
-    Atualiza a porta HTTPS.
+    Updates the HTTPS port.
 
     Args:
-        port (int): Nova porta HTTPS a ser salva.
+        port (int): New HTTPS port to save.
     """
     try:
         config = {"Port": port, "ProtocolEnabled": get_https_protocol_enabled()}
         with open(HTTPS_CONFIG_FILE, "w") as file:
             json.dump(config, file)
-            print(f"HTTPS.Port atualizado para {port}")
+            print(f"HTTPS.Port updated to {port}")
     except Exception as e:
-        print(f"Erro ao atualizar HTTPS.Port: {e}")
+        print(f"Error updating HTTPS.Port: {e}")
 
 
 # HTTPS.ProtocolEnabled
 def get_https_protocol_enabled():
     """
-    Retorna o status do protocolo HTTPS.
+    Returns the HTTPS protocol status.
 
     Returns:
-        bool: True se o protocolo HTTPS está habilitado, False caso contrário. Padrão True.
+        bool: True if HTTPS protocol is enabled, False otherwise. Default True.
     """
     try:
         if os.path.exists(HTTPS_CONFIG_FILE):
             with open(HTTPS_CONFIG_FILE, "r") as file:
                 data = json.load(file)
-                return data.get("ProtocolEnabled", True)  # Padrão True
+                return data.get("ProtocolEnabled", True)  # Default True
         return True
     except Exception as e:
-        print(f"Erro ao carregar HTTPS.ProtocolEnabled: {e}")
+        print(f"Error loading HTTPS.ProtocolEnabled: {e}")
         return True
 
 def set_https_protocol_enabled(enabled):
     """
-    Atualiza o status do protocolo HTTPS.
+    Updates the HTTPS protocol status.
 
     Args:
-        enabled (bool): True para habilitar, False para desabilitar.
+        enabled (bool): True to enable, False to disable.
     """
     try:
         config = {"Port": get_https_port(), "ProtocolEnabled": enabled}
         with open(HTTPS_CONFIG_FILE, "w") as file:
             json.dump(config, file)
-            print(f"HTTPS.ProtocolEnabled atualizado para {enabled}")
+            print(f"HTTPS.ProtocolEnabled updated to {enabled}")
     except Exception as e:
-        print(f"Erro ao atualizar HTTPS.ProtocolEnabled: {e}")
+        print(f"Error updating HTTPS.ProtocolEnabled: {e}")
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2001,56 +2059,56 @@ def set_https_protocol_enabled(enabled):
 
 def get_hostname():
     """
-    Retorna o hostname do sistema.
+    Returns the system hostname.
 
     Returns:
-        str: Hostname do sistema.
+        str: System hostname.
     """
     return socket.gethostname()
 
 def get_kernel_name():
     """
-    Retorna o nome do kernel do sistema operacional.
+    Returns the operating system kernel name.
 
     Returns:
-        str: Nome do kernel (ex: 'Linux').
+        str: Kernel name (ex: 'Linux').
     """
     return platform.system()
 
 def get_kernel_release():
     """
-    Retorna a release do kernel do sistema operacional.
+    Returns the operating system kernel release.
 
     Returns:
-        str: Release do kernel (ex: '5.10.17-v7l+').
+        str: Kernel release (ex: '5.10.17-v7l+').
     """
     return platform.release()
 
 def get_kernel_version():
     """
-    Retorna a versão detalhada do kernel do sistema operacional.
+    Returns the detailed operating system kernel version.
 
     Returns:
-        str: Versão detalhada do kernel.
+        str: Detailed kernel version.
     """
     return platform.version()
 
 def get_last_boot_time():
     """
-    Retorna a data e hora do último boot do sistema.
+    Returns the date and time of the last system boot.
 
     Returns:
-        str: Data e hora do último boot em formato ISO 8601.
+        str: Date and time of last boot in ISO 8601 format.
     """
     boot_time = datetime.fromtimestamp(psutil.boot_time())
     return boot_time.isoformat()
 
 def get_metrics():
     """
-    Retorna métricas básicas do sistema.
+    Returns basic system metrics.
 
     Returns:
-        dict: Dicionário com uso de CPU (%) e memória (GB).
+        dict: Dictionary with CPU usage (%) and memory usage (GB).
     """
     return {
         "CPUUsage": f"{str(psutil.cpu_percent())}%",
@@ -2059,28 +2117,28 @@ def get_metrics():
 
 def get_processor_architecture():
     """
-    Retorna a arquitetura do processador.
+    Returns the processor architecture.
 
     Returns:
-        str: Arquitetura do processador (ex: 'armv7l', 'aarch64').
+        str: Processor architecture (ex: 'armv7l', 'aarch64').
     """
     return platform.machine()
 
 def get_operating_system_name():
     """
-    Retorna o nome completo do sistema operacional.
+    Returns the full operating system name.
 
     Returns:
-        str: Nome completo do sistema operacional.
+        str: Full operating system name.
     """
     return platform.platform()
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Caminho para o arquivo que armazenará o estado de ServiceEnabled
+# Path to the file that will store the ServiceEnabled state
 SERVICE_ENABLED_FILE = "operating_system_metrics_state.json"
 
-# Estado inicial padrão
+# Default initial state
 default_state = {
     "OperatingSystemMetrics": True,
     "EthernetInterfaceMetrics": True,
@@ -2091,53 +2149,53 @@ default_state = {
 
 def load_service_enabled_state():
     """
-    Carrega o estado de ServiceEnabled do arquivo JSON.
+    Loads ServiceEnabled state from JSON file.
 
     Returns:
-        dict: Dicionário com o estado atual das métricas (ex: quais métricas estão habilitadas).
-              Se o arquivo não existir ou estiver corrompido, retorna o estado padrão.
+        dict: Dictionary with current metrics state (ex: which metrics are enabled).
+              If the file doesn't exist or is corrupted, returns the default state.
     """
     if os.path.exists(SERVICE_ENABLED_FILE):
         try:
             with open(SERVICE_ENABLED_FILE, "r") as file:
                 return json.load(file)
         except (json.JSONDecodeError, IOError):
-            print("Arquivo corrompido. Recriando com o estado padrão.")
+            print("File corrupted. Recreating with default state.")
             save_service_enabled_state(default_state)
-    # Retorna o estado padrão se o arquivo não existir ou estiver corrompido
+    # Returns default state if file doesn't exist or is corrupted
     return default_state.copy()
 
 def save_service_enabled_state(state):
     """
-    Salva o estado de ServiceEnabled no arquivo JSON.
+    Saves ServiceEnabled state to JSON file.
 
     Args:
-        state (dict): Dicionário com o estado das métricas a serem salvas.
+        state (dict): Dictionary with the metrics state to be saved.
     Raises:
-        ValueError: Se o dicionário contiver chaves inválidas.
+        ValueError: If the dictionary contains invalid keys.
     """
-    # Valida as chaves antes de salvar
+    # Validates keys before saving
     valid_keys = default_state.keys()
     if not all(key in valid_keys for key in state.keys()):
-        raise ValueError("O estado contém chaves inválidas.")
+        raise ValueError("The state contains invalid keys.")
     
     with open(SERVICE_ENABLED_FILE, "w") as file:
         json.dump(state, file)
 
-# Carregue o estado atual na inicialização
+# Load the current state on initialization
 service_enabled_state = load_service_enabled_state()
 
 
 def get_ethernet_metrics(service_enabled=True):
     """
-    Captura métricas obrigatórias das interfaces Ethernet.
+    Captures mandatory metrics for Ethernet interfaces.
 
     Args:
-        service_enabled (bool): Indica se o serviço está habilitado (padrão: True).
+        service_enabled (bool): Indicates if the service is enabled (default: True).
 
     Returns:
-        dict or list: Dicionário {"ServiceEnabled": False} se desabilitado, 
-                      ou lista de métricas por interface se habilitado.
+        dict or list: Dictionary {"ServiceEnabled": False} if disabled, 
+                      or list of metrics per interface if enabled.
     """
     if not is_service_enabled("EthernetInterfaceMetrics"):
         return {"ServiceEnabled": False}
@@ -2160,13 +2218,13 @@ def get_ethernet_metrics(service_enabled=True):
 
 def get_memory_metrics(service_enabled=True):
     """
-    Captura métricas obrigatórias da memória.
+    Captures mandatory memory metrics.
 
     Args:
-        service_enabled (bool): Indica se o serviço está habilitado (padrão: True).
+        service_enabled (bool): Indicates if the service is enabled (default: True).
 
     Returns:
-        dict: Dicionário com métricas de memória ou {"ServiceEnabled": False} se desabilitado.
+        dict: Dictionary with memory metrics or {"ServiceEnabled": False} if disabled.
     """
     if not is_service_enabled("MemoryMetrics"):
         return {"ServiceEnabled": False}
@@ -2186,23 +2244,23 @@ def get_memory_metrics(service_enabled=True):
 
 def get_processor_metrics(service_enabled=True):
     """
-    Captura métricas obrigatórias do processador.
+    Captures mandatory processor metrics.
 
     Args:
-        service_enabled (bool): Indica se o serviço está habilitado (padrão: True).
+        service_enabled (bool): Indicates if the service is enabled (default: True).
 
     Returns:
-        dict: Dicionário com métricas do processador.
+        dict: Dictionary with processor metrics.
     """
     cpu_usage = cpu_usage_percent()
     cpu_util_pct_idle = 100 - cpu_usage
 
 
-    #A carga geralmente reflete o nível de concorrência, ou seja, quantos processos estão competindo por tempo de CPU.
-    # Obtém as médias de carga do sistema
+    #Load generally reflects the concurrency level, i.e., how many processes are competing for CPU time.
+    # Gets the system load averages
     load1, load5, load15 = psutil.getloadavg()
     cores = psutil.cpu_count(logical=True)
-    # Calcula os percentuais com base nos núcleos
+    # Calculates the percentages based on the cores
     cpu_load_pct_1m = (load1 / cores) * 100
     cpu_load_pct_5m = (load5 / cores) * 100
     cpu_load_pct_15m = (load15 / cores) * 100
@@ -2220,14 +2278,14 @@ def get_processor_metrics(service_enabled=True):
 
 def get_volume_metrics(service_enabled=True):
     """
-    Captura métricas obrigatórias dos volumes de armazenamento.
+    Captures mandatory metrics for storage volumes.
 
     Args:
-        service_enabled (bool): Indica se o serviço está habilitado (padrão: True).
+        service_enabled (bool): Indicates if the service is enabled (default: True).
 
     Returns:
-        dict or list: Dicionário {"ServiceEnabled": False} se desabilitado,
-                      ou lista de métricas por volume se habilitado.
+        dict or list: Dictionary {"ServiceEnabled": False} if disabled,
+                      or list of metrics per volume if enabled.
     """
     if not is_service_enabled("VolumePartitionMetrics"):
         return {"ServiceEnabled": False}
@@ -2245,22 +2303,22 @@ def get_volume_metrics(service_enabled=True):
 
 def is_service_enabled(metric_name):
     """
-    Verifica se o serviço para uma métrica está habilitado.
+    Checks if the service for a metric is enabled.
 
     Args:
-        metric_name (str): Nome da métrica (ex: 'MemoryMetrics').
+        metric_name (str): Name of the metric (ex: 'MemoryMetrics').
 
     Returns:
-        bool: True se a métrica está habilitada, False caso contrário.
+        bool: True if the metric is enabled, False otherwise.
     """
     return service_enabled_state.get(metric_name, False)
 
 def get_metrics_timestamp():
     """
-    Retorna o timestamp da última atualização das métricas.
+    Returns the timestamp of the last metrics update.
 
     Returns:
-        str: Data e hora atual em formato ISO 8601 com sufixo 'Z' (UTC).
+        str: Current date and time in ISO 8601 format with 'Z' suffix (UTC).
     """
     return datetime.utcnow().isoformat() + "Z"
 
@@ -2271,8 +2329,20 @@ def get_metrics_timestamp():
 ssdp_enabled = True
 
 def get_ssdp_enabled():
+    """
+    Returns whether SSDP discovery is enabled.
+
+    Returns:
+        bool: Current SSDP enabled state.
+    """
     return ssdp_enabled
 
 def set_ssdp_enabled(value):
+    """
+    Updates SSDP enabled state.
+
+    Args:
+        value (bool): New SSDP state.
+    """
     global ssdp_enabled
     ssdp_enabled = value

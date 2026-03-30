@@ -2,10 +2,10 @@ import readings
 
 def get_chassis():
     """
-    Retorna a coleção de chassis do sistema.
+    Returns the system chassis collection.
 
     Returns:
-        dict: Dicionário com informações da coleção de chassis no formato Redfish.
+        dict: Dictionary with chassis collection information in Redfish format.
     """
     chassis = {
         "@odata.type": "#ChassisCollection.ChassisCollection",
@@ -22,10 +22,10 @@ def get_chassis():
 
 def get_chassis_id():
     """
-    Retorna informações detalhadas do chassi identificado pelo ID.
+    Returns detailed information about the chassis identified by ID.
 
     Returns:
-        dict: Dicionário com informações do chassi no formato Redfish.
+        dict: Dictionary with chassis information in Redfish format.
     """
     chassis_id = {
         "@odata.type": "#Chassis.v1_26_0.Chassis",
@@ -64,29 +64,66 @@ def get_chassis_id():
 
 def get_sensors():
     """
-    Retorna informações dos sensores do chassi.
+    Returns information about chassis sensors.
 
     Returns:
-        dict: Dicionário com leituras dos sensores do chassi no formato Redfish.
+        dict: Dictionary with readings from chassis sensors in Redfish format.
     """
+    machine_id = readings.machine_id()
     sensors = {
         "@odata.type": "#SensorCollection.SensorCollection",
-        "Name": "Chassis sensors",
-        "CPU Temperature": readings.cpu_temp(),
-        "CPU Voltage": readings.cpu_voltage(),
-        "SDRAM_I Voltage": readings.memory_voltage(),
-        "SDRAM_C Voltage": readings.memory_voltage_c(),
-        "SDRAM_P Voltage": readings.memory_voltage_p(),
-        "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/Sensors"
+        "Name": "Chassis Sensors",
+        "Members@odata.count": 1,
+        "Members": [
+            {
+                "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
+            }
+        ],
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors"
     }
     return sensors
 
-def get_thermalSubsystem():
+def get_sensor(sensor_id):
     """
-    Retorna informações do subsistema térmico do chassi.
+    Returns details for a single chassis sensor.
+
+    Args:
+        sensor_id (str): Sensor identifier.
 
     Returns:
-        dict: Dicionário com informações do subsistema térmico no formato Redfish.
+        tuple: (dict, int) Sensor payload and HTTP status code.
+    """
+    machine_id = readings.machine_id()
+
+    if sensor_id != "CPUTemp":
+        return {"error": "Sensor not found"}, 404
+
+    reading = readings.cpu_temp()
+    state = "Enabled" if reading is not None else "UnavailableOffline"
+    health = readings.temp_health()
+
+    sensor_payload = {
+        "@odata.type": "#Sensor.v1_6_0.Sensor",
+        "Id": "CPUTemp",
+        "Name": "CPU Temperature",
+        "ReadingType": "Temperature",
+        "ReadingUnits": "Cel",
+        "Reading": reading,
+        "PhysicalContext": "CPU",
+        "Status": {
+            "State": state,
+            "Health": health
+        },
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
+    }
+    return sensor_payload, 200
+
+def get_thermalSubsystem():
+    """
+    Returns information about the chassis thermal subsystem.
+
+    Returns:
+        dict: Dictionary with thermal subsystem information in Redfish format.
     """
     thermalsub = {
         "@odata.type": "#ThermalSubsystem.v1_3_3.ThermalSubsystem",
@@ -106,32 +143,36 @@ def get_thermalSubsystem():
 
 def get_thermalMetrics():
     """
-    Retorna as métricas térmicas do chassi.
+    Returns the thermal metrics for the chassis.
 
     Returns:
-        dict: Dicionário com leituras de temperatura do chassi no formato Redfish.
+        dict: Dictionary with temperature readings from the chassis in Redfish format.
     """
+    machine_id = readings.machine_id()
+    reading = readings.cpu_temp()
+
     metrics = {
         "@odata.type": "#ThermalMetrics.v1_3_2.ThermalMetrics",
         "Id": "ThermalMetrics",
         "Name": "Chassis Thermal Metrics",
         "TemperatureReadingsCelsius": [
             {
-                "Reading": readings.cpu_temp(),
+                "Reading": reading,
                 "DeviceName": "CPUSubsystem",
-                "DataSourceUri": "/redfish/v1/Chassis/"+readings.machine_id()+"/Sensors"
+                "PhysicalContext": "CPU",
+                "DataSourceUri": f"/redfish/v1/Chassis/{machine_id}/Sensors/CPUTemp"
             },
         ],
-        "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/ThermalSubsystem/ThermalMetrics"
+        "@odata.id": f"/redfish/v1/Chassis/{machine_id}/ThermalSubsystem/ThermalMetrics"
     }
     return metrics
 
 def get_powerSubsystem():
     """
-    Retorna informações do subsistema de energia do chassi.
+    Returns information about the chassis power subsystem.
 
     Returns:
-        dict: Dicionário com informações do subsistema de energia no formato Redfish.
+        dict: Dictionary with power subsystem information in Redfish format.
     """
     power = {
         "@odata.type": "#PowerSubsystem.v1_1_3.PowerSubsystem",

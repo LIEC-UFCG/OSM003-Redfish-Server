@@ -5,10 +5,10 @@ from ssdp_control import start_ssdp, stop_ssdp
 
 def get_managers():
     """
-    Retorna a coleção de gerenciadores (Managers) disponíveis no sistema.
+    Returns the collection of managers available in the system.
 
     Returns:
-        flask.Response: JSON com a coleção de gerenciadores no formato Redfish.
+        flask.Response: JSON with managers collection in Redfish format.
     """
     managers = {
         "@odata.context": "/redfish/v1/$metadata#ManagerCollection.ManagerCollection",
@@ -26,13 +26,13 @@ def get_managers():
 
 def get_manager_details(manager_id):
     """
-    Retorna detalhes de um gerenciador específico.
+    Returns details for a specific manager.
 
     Args:
-        manager_id (str): ID do gerenciador.
+        manager_id (str): Manager ID.
 
     Returns:
-        flask.Response: JSON com os detalhes do gerenciador ou erro 404 se não encontrado.
+        flask.Response: JSON with manager details or 404 error if not found.
     """
     if manager_id != readings.machine_id():
         return jsonify({"error": "Manager not found"}), 404
@@ -43,7 +43,7 @@ def get_manager_details(manager_id):
         "Id": manager_id,
         "Name": "Raspberry Pi Manager",
         "Description": "Raspberry Pi Manager",
-        "ManagerType": "ManagementController",        #ManagementController: Um gerenciador genérico usado para dispositivos sem funções específicas de BMC ou de chassi.
+        "ManagerType": "ManagementController",        # ManagementController: A generic manager used for devices without specific BMC or chassis functions.
         "Model": readings.model(),                                                       
         "UUID": readings.system_uuid(),
         "CommandShell": {
@@ -61,7 +61,7 @@ def get_manager_details(manager_id):
                 "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/EthernetInterfaces"
         },
         "NetworkProtocol": {
-            "@odata.id": f"/redfish/v1/Managers/{manager_id}/NetworkProtocol"                   #????????????
+            "@odata.id": f"/redfish/v1/Managers/{manager_id}/NetworkProtocol"                   # TODO: Verify endpoint
         },
         "Links": {
             "ManagerForChassis": [
@@ -80,28 +80,28 @@ def get_manager_details(manager_id):
 
 def update_manager(manager_id):
     """
-    Atualiza propriedades do gerenciador, como DateTime, DateTimeLocalOffset e ServiceEnabled.
+    Updates manager properties, such as DateTime, DateTimeLocalOffset and ServiceEnabled.
 
     Args:
-        manager_id (str): ID do gerenciador.
+        manager_id (str): Manager ID.
 
     Returns:
-        flask.Response: Mensagem de sucesso e campos atualizados, ou erro.
+        flask.Response: Success message and updated fields, or error.
     """
     data = request.get_json()
     response = {}
 
-    # Atualiza DateTime
+    # Updates DateTime
     if "DateTime" in data:
         readings.set_datetime(data["DateTime"])
         response["DateTime"] = data["DateTime"]
 
-    # Atualiza DateTimeLocalOffset
+    # Updates DateTimeLocalOffset
     if "DateTimeLocalOffset" in data:
         readings.set_datetime_offset(data["DateTimeLocalOffset"])
         response["DateTimeLocalOffset"] = data["DateTimeLocalOffset"]
 
-    # Atualiza ServiceEnabled
+    # Updates ServiceEnabled
     if "ServiceEnabled" in data:
         readings.set_service_enabled(data["ServiceEnabled"])
         response["ServiceEnabled"] = data["ServiceEnabled"]
@@ -112,49 +112,49 @@ def update_manager(manager_id):
 
 def get_manager_network_protocol():
     """
-    Retorna as configurações de protocolo de rede do gerenciador.
+    Returns manager network protocol configurations.
 
     Returns:
-        flask.Response: JSON com as configurações de protocolo de rede (FQDN, HTTPS, HostName).
+        flask.Response: JSON with network protocol configurations (FQDN, HTTPS, HostName).
     """
     network_protocol = {
         "@odata.type": "#ManagerNetworkProtocol.v1_10_1.ManagerNetworkProtocol",
         "Id": "NetworkProtocol",
         "Name": "Manager Network Protocol",
         "Description": "Manager Network Service",
-        "FQDN": readings.get_fqdn(),  # Obter o nome de domínio completo
+        "FQDN": readings.get_fqdn(),  # Get fully qualified domain name
         "HTTPS": {
             "Port": readings.get_https_port(),
             "ProtocolEnabled": readings.get_https_protocol_enabled()
         },
         "SSDP": {
             "ProtocolEnabled": readings.get_ssdp_enabled(),  # bool
-            "Port": 1900,  # Porta padrão SSDP
+            "Port": 1900,  # SSDP standard port
             "NotifyTTL": 2,
             "NotifyMulticastIntervalSeconds": 30,
-            "NotifyIPv6Scope": "Link"  # Ou "Site", conforme o caso
+            "NotifyIPv6Scope": "Link"  # Or "Site", as appropriate
         },
-        "HostName": readings.get_hostname(),  # Obter o nome do host
+        "HostName": readings.get_hostname(),  # Get hostname
         "@odata.id": "/redfish/v1/Managers/" + readings.machine_id() + "/NetworkProtocol"
     }
     return jsonify(network_protocol)
 
 def update_network_protocol():
     """
-    Atualiza as configurações de protocolo de rede do gerenciador (FQDN, HTTPS.Port, HTTPS.ProtocolEnabled, SSDP).
+    Updates manager network protocol configurations (FQDN, HTTPS.Port, HTTPS.ProtocolEnabled, SSDP).
 
     Returns:
-        flask.Response: Mensagem de sucesso e campos atualizados, ou erro.
+        flask.Response: Success message and updated fields, or error.
     """
     data = request.get_json()
     response = {}
 
-    # Atualiza FQDN
+    # Updates FQDN
     if "FQDN" in data:
         readings.set_fqdn(data["FQDN"])
         response["FQDN"] = data["FQDN"]
 
-    # Atualiza HTTPS.Port
+    # Updates HTTPS.Port
     if "HTTPS" in data and isinstance(data["HTTPS"], dict):
         if "Port" in data["HTTPS"]:
             readings.set_https_port(data["HTTPS"]["Port"])
@@ -163,7 +163,7 @@ def update_network_protocol():
             readings.set_https_protocol_enabled(data["HTTPS"]["ProtocolEnabled"])
             response["HTTPS.ProtocolEnabled"] = data["HTTPS"]["ProtocolEnabled"]
 
-    # Atualiza SSDP.ProtocolEnabled
+    # Updates SSDP.ProtocolEnabled
     if isinstance(data.get("SSDP"), dict) and "ProtocolEnabled" in data["SSDP"]:
         enabled = data["SSDP"]["ProtocolEnabled"]
         readings.set_ssdp_enabled(enabled)

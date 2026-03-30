@@ -6,26 +6,26 @@ import logservice
 
 def submit_test_event():
     """
-    Simula o envio de um evento de teste para o EventService.
+    Simulates sending a test event to the EventService.
 
-    Lê os dados do request, valida os campos obrigatórios, gera um evento de teste com um ID único,
-    adiciona o evento ao log e retorna o evento criado.
+    Reads request data, validates mandatory fields, generates a test event with a unique ID,
+    adds event to log and returns the created event.
 
     Returns:
-        flask.Response: Resposta JSON com o evento criado e status 201 em caso de sucesso,
-                        ou mensagem de erro e status 400/500 em caso de falha.
+        flask.Response: JSON response with created event and status 201 on success,
+                        or error message and status 400/500 on failure.
     """
     try:
-        # Obtém os dados do request
+        # Gets request data
         data = request.get_json()
 
-        # Campos obrigatórios
+        # Required fields
         required_fields = ["Message", "MessageId", "OriginOfCondition"]
         for field in required_fields:
             if field not in data:
                 return jsonify({"error": f"Field '{field}' is required"}), 400
 
-        # Gerar um ID único baseado no timestamp
+        # Generate unique ID based on timestamp
         event_id = str(int(datetime.utcnow().timestamp() * 1000))
 
         test_event = {
@@ -42,7 +42,7 @@ def submit_test_event():
             }
         }
 
-        # Adicionar o evento ao log
+        # Add event to log
         logservice.add_log_entry(
             system_id="EventService",
             logservice_id="TestLog",
@@ -52,7 +52,7 @@ def submit_test_event():
             message_id=test_event["MessageId"]
         )
 
-        return jsonify(test_event), 201  # Retorna o evento criado
+        return jsonify(test_event), 201  # Returns created event
 
     except Exception as e:
         return jsonify({"error": f"Failed to submit test event: {str(e)}"}), 500
@@ -60,13 +60,13 @@ def submit_test_event():
 
 def get_event_service():
     """
-    Retorna as informações do EventService no formato Redfish.
+    Returns EventService information in Redfish format.
 
-    Inclui configurações como tentativas de reentrega, tipos de eventos suportados,
-    status do serviço e links para ações e assinaturas.
+    Includes configurations such as delivery retry attempts, supported event types,
+    service status and links to actions and subscriptions.
 
     Returns:
-        dict: Dicionário com os dados do EventService no padrão Redfish.
+        dict: Dictionary with EventService data in Redfish standard.
     """
     event_service = {
         "@odata.context": "/redfish/v1/$metadata#EventService.EventService",
@@ -80,8 +80,8 @@ def get_event_service():
                 #"@Redfish.ActionInfo": "/redfish/v1/EventService/SubmitTestEventActionInfo"
             }
         },
-        "DeliveryRetryAttempts": readings.get_delivery_retry_attempts(),             # Escrita e leitura
-        "DeliveryRetryIntervalSeconds": readings.get_delivery_retry_interval_seconds(),     # Escrita e leitura
+        "DeliveryRetryAttempts": readings.get_delivery_retry_attempts(),             # Read and write
+        "DeliveryRetryIntervalSeconds": readings.get_delivery_retry_interval_seconds(),     # Read and write
         "EventTypesForSubscription": [
             "StatusChange",
             "ResourceUpdated",
@@ -89,7 +89,7 @@ def get_event_service():
             "ResourceRemoved",
             "Alert"
         ],
-        "ServiceEnabled": readings.get_service_enabled(),                 # Escrita e leitura
+        "ServiceEnabled": readings.get_service_enabled(),                 # Read and write
         "Status": {
             "Health": "OK",
             "State": "Enabled"

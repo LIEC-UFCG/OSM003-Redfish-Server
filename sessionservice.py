@@ -1,12 +1,10 @@
 import json
 import os
 from flask import jsonify, request, make_response
-import readings
 
 SESSION_SERVICE_FILE = "session_service.json"
-system_id = readings.machine_id()
 
-# Estado inicial padrão do SessionService
+# Default initial state of SessionService
 default_service_state = {
     "ServiceEnabled": True,
     "SessionTimeout": 600,
@@ -16,43 +14,43 @@ default_service_state = {
     }
 }
 
-# Função para carregar o estado do SessionService
+# Function to load SessionService state
 def load_session_service():
     """
-    Carrega o estado do SessionService do arquivo JSON.
+    Loads the SessionService state from a JSON file.
 
     Returns:
-        dict: Dicionário com o estado do SessionService carregado do arquivo ou o estado padrão se o arquivo não existir ou estiver inválido.
+        dict: Dictionary with SessionService state loaded from file or default state if file doesn't exist or is invalid.
     """
     if os.path.exists(SESSION_SERVICE_FILE):
         try:
             with open(SESSION_SERVICE_FILE, "r") as file:
                 return json.load(file)
         except json.JSONDecodeError as e:
-            print(f"Erro ao carregar JSON: {e}")
+            print(f"Error loading JSON: {e}")
     return default_service_state.copy()
 
 
-# Função para salvar o estado do SessionService
+# Function to save SessionService state
 def save_session_service(state):
     """
-    Salva o estado do SessionService no arquivo JSON.
+    Saves the SessionService state to a JSON file.
 
     Args:
-        state (dict): Dicionário com o estado do SessionService a ser salvo.
+        state (dict): Dictionary with SessionService state to be saved.
     """
     with open(SESSION_SERVICE_FILE, "w") as file:
         json.dump(state, file, indent=4)
 
-# Carregar estado inicial do SessionService
+# Load initial SessionService state
 session_service_state = load_session_service()
 
 def get_session_service():
     """
-    Retorna os dados do SessionService no formato Redfish.
+    Returns SessionService data in Redfish format.
 
     Returns:
-        flask.Response: Resposta JSON com os dados do SessionService.
+        flask.Response: JSON response with SessionService data.
     """
     response = {
         #"@odata.context": "/redfish/v1/$metadata#SessionService.SessionService",
@@ -72,13 +70,13 @@ def get_session_service():
 
 def update_session_service(data):
     """
-    Atualiza propriedades do SessionService, como ServiceEnabled e SessionTimeout.
+    Updates SessionService properties such as ServiceEnabled and SessionTimeout.
 
     Args:
-        data (dict): Dicionário com as propriedades a serem atualizadas.
+        data (dict): Dictionary with properties to be updated.
 
     Returns:
-        flask.Response: Mensagem de sucesso se atualizado ou erro 400 se propriedades inválidas.
+        flask.Response: Success message if updated or 400 error if invalid properties.
     """
     updated = False
 

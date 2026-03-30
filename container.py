@@ -2,19 +2,19 @@ import docker
 from flask import jsonify, request, make_response
 from datetime import datetime
 
-client = docker.from_env()  # Conecta-se ao daemon Docker
+client = docker.from_env()  # Connects to Docker daemon
 
 def get_containers(system_id):
     """
-    Retorna a coleção de containers Docker do sistema.
+    Returns the collection of Docker containers from the system.
 
     Args:
-        system_id (str): ID do sistema Redfish.
+        system_id (str): Redfish system ID.
 
     Returns:
-        flask.Response: Resposta JSON com a coleção de containers no formato Redfish.
+        flask.Response: JSON response with the collection of containers in Redfish format.
     """
-    containers = client.containers.list(all=True)  # Obtém todos os containers, incluindo os parados
+    containers = client.containers.list(all=True)  # Gets all containers, including stopped ones
 
     container_list = []
     for container in containers:
@@ -23,7 +23,7 @@ def get_containers(system_id):
             #"@odata.type": "#Container.v1_0_1.Container",
             #"Id": container.id,
             #"Members": [],  # Removido o link incorreto
-            #"Members@odata.count": 0  # Adicionado 0, já que não há membros para este nível
+            #"Members@odata.count": 0  # Added 0, since there are no members for this level
         }
         container_list.append(container_info)
 
@@ -38,24 +38,24 @@ def get_containers(system_id):
 
 def get_container(system_id, container_id):
     """
-    Retorna detalhes de um container Docker específico.
+    Returns details of a specific Docker container.
 
     Args:
-        system_id (str): ID do sistema Redfish.
-        container_id (str): ID do container Docker.
+        system_id (str): Redfish system ID.
+        container_id (str): Docker container ID.
 
     Returns:
-        flask.Response: Resposta JSON com os detalhes do container.
-        tuple: (response, status_code) em caso de erro.
+        flask.Response: JSON response with container details.
+        tuple: (response, status_code) in case of error.
     """
     try:
         container = client.containers.get(container_id)
 
-        # Processa volumes do contêiner (mesmo que não existam)
+        # Processes container volumes (even if they don't exist)
         mounts = container.attrs.get('Mounts', [])
         volumes = []
 
-        if mounts:  # Caso existam volumes montados
+        if mounts:  # If volumes are mounted
             for mount in mounts:
                 volume_info = {
                     "VolumeName": mount.get('Name', 'Unknown'),
@@ -65,7 +65,7 @@ def get_container(system_id, container_id):
                     "RelatedItem": []
                 }
                 volumes.append(volume_info)
-        else:  # Caso não existam volumes, incluir estrutura vazia
+        else:  # If volumes don't exist, include empty structure
             volumes = [
                 {
                     "VolumeName": "None",
@@ -76,7 +76,7 @@ def get_container(system_id, container_id):
                 }
             ]
 
-        # Preenche a estrutura final do JSON
+        # Fills the final JSON structure
         container_info = {
             "@odata.id": f"/redfish/v1/Systems/{system_id}/OperatingSystem/Containers/{container.id}",
             "@odata.type": "#Container.v1_0_1.Container",
@@ -106,7 +106,7 @@ def get_container(system_id, container_id):
                 }
                 for interface_name, interface_info in container.attrs.get('NetworkSettings', {}).get('Networks', {}).items()
             ],
-            "Volumes": volumes,  # Inclui sempre a seção Volumes com estrutura padrão ou preenchida
+            "Volumes": volumes,  # Always includes the Volumes section with default or filled structure
             "Actions": {
                 "#Container.Reset": {
                     "target": f"/redfish/v1/Systems/{system_id}/OperatingSystem/Containers/{container_id}/Actions/Container.Reset",
@@ -133,13 +133,13 @@ def get_container(system_id, container_id):
 
 def start_container(container_id):
     """
-    Inicia um container Docker.
+    Starts a Docker container.
 
     Args:
-        container_id (str): ID do container Docker.
+        container_id (str): Docker container ID.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro.
+        flask.Response: Success or error message.
     """
     try:
         container = client.containers.get(container_id)
@@ -150,13 +150,13 @@ def start_container(container_id):
 
 def stop_container(container_id):
     """
-    Para um container Docker.
+    Stops a Docker container.
 
     Args:
-        container_id (str): ID do container Docker.
+        container_id (str): Docker container ID.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro.
+        flask.Response: Success or error message.
     """
     try:
         container = client.containers.get(container_id)
@@ -167,13 +167,13 @@ def stop_container(container_id):
 
 def reset_container(container_id):
     """
-    Reinicia um container Docker.
+    Restarts a Docker container.
 
     Args:
-        container_id (str): ID do container Docker.
+        container_id (str): Docker container ID.
 
     Returns:
-        flask.Response: Mensagem de sucesso ou erro.
+        flask.Response: Success or error message.
     """
     try:
         container = client.containers.get(container_id)

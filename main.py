@@ -870,6 +870,34 @@ def load_log_file(log_file):
             pass
     return []
 
+def format_log_entry_object(log, system_id, log_type):
+    """
+    Converts a log dictionary to a complete LogEntry object.
+    
+    Args:
+        log (dict): Log dictionary from JSON file
+        system_id (str): System ID
+        log_type (str): Type of log service (AuditLog, AuthLog, EventLog, ErrorLog)
+    
+    Returns:
+        dict: Complete LogEntry object with all required properties
+    """
+    event_id = log.get("EventId", "")
+    return {
+        "@odata.type": "#LogEntry.v1_17_0.LogEntry",
+        "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{log_type}/Entries/{event_id}",
+        "Id": event_id,
+        "Name": log.get("Name", f"Log Entry {event_id}"),
+        "EntryType": log.get("EntryType", "Event"),
+        "Severity": log.get("Severity", "Warning"),
+        "Created": log.get("Created", ""),
+        "Resolved": log.get("Resolved", False),
+        "Message": log.get("Message", ""),
+        "MessageId": log.get("MessageId", ""),
+        "UserName": log.get("UserName", None),
+        "MessageArgs": log.get("MessageArgs", [])
+    }
+
 def get_log_entry_by_eventid(log_file, system_id, log_type, event_id):
     logs = load_log_file(log_file)
     for log in logs:
@@ -930,7 +958,7 @@ def audit_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuditLog/Entries",
         "Name": "Audit Log Entries Collection",
-        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuditLog/Entries/{log['EventId']}"} for log in logs],
+        "Members": [format_log_entry_object(log, system_id, "AuditLog") for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -945,7 +973,7 @@ def auth_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuthLog/Entries",
         "Name": "Auth Log Entries Collection",
-        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuthLog/Entries/{log['EventId']}"} for log in logs],
+        "Members": [format_log_entry_object(log, system_id, "AuthLog") for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -960,7 +988,7 @@ def event_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/EventLog/Entries",
         "Name": "Event Log Entries Collection",
-        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/EventLog/Entries/{log['EventId']}"} for log in logs],
+        "Members": [format_log_entry_object(log, system_id, "EventLog") for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -975,7 +1003,7 @@ def error_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/ErrorLog/Entries",
         "Name": "Error Log Entries Collection",
-        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/ErrorLog/Entries/{log['EventId']}"} for log in logs],
+        "Members": [format_log_entry_object(log, system_id, "ErrorLog") for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)

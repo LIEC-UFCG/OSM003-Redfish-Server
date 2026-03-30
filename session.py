@@ -4,7 +4,7 @@ from flask import jsonify, request, make_response
 import bcrypt
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from config import SESSION_TIMEOUT
 from logservice import add_auth_log_entry, add_audit_log_entry, add_error_log_entry
@@ -62,6 +62,30 @@ def load_accounts():
     return {}
 
 accounts = load_accounts()
+
+
+def _to_redfish_datetime(value):
+    """Convert epoch seconds or datetime-like strings to Redfish DateTime format."""
+    if isinstance(value, (int, float)):
+        dt = datetime.fromtimestamp(value, tz=timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+
+    if isinstance(value, str):
+        # Keep already compliant values unchanged.
+        if value.endswith("Z") or "+" in value[10:] or "-" in value[10:]:
+            return value
+
+        # Old stored values may be naive ISO strings without timezone.
+        try:
+            dt = datetime.fromisoformat(value)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat().replace("+00:00", "Z")
+        except ValueError:
+            pass
+
+    # Conservative fallback to current UTC with timezone.
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 
@@ -132,8 +156,8 @@ def create_session():
                     "@odata.id": f"/redfish/v1/SessionService/Sessions/{sid}",
                     "Id": sid,
                     "UserName": username,
-                    "CreatedTime": sess["CreatedTime"],
-                    "ExpirationTime": sess["ExpirationTime"]
+                    "CreatedTime": _to_redfish_datetime(sess.get("CreatedTime")),
+                    "ExpirationTime": _to_redfish_datetime(sess.get("ExpirationTime"))
                 }
             }, 409)
 
@@ -161,8 +185,8 @@ def create_session():
         "Name": "User Session",
         "UserName": username,
         "Password": None,
-        "CreatedTime": datetime.fromtimestamp(current_time).isoformat(),
-        "ExpirationTime": datetime.fromtimestamp(expiration_time).isoformat()
+        "CreatedTime": _to_redfish_datetime(current_time),
+        "ExpirationTime": _to_redfish_datetime(expiration_time)
     }
 
     response = make_response(response_body, 201)
@@ -230,8 +254,8 @@ def get_session(session_id):
             "Id": session_id,
             "Name": "User Session",
             "UserName": session_data["UserName"],
-            "CreatedTime": datetime.fromtimestamp(current_time).isoformat(),
-            "ExpirationTime": datetime.fromtimestamp(expiration_time).isoformat(),
+            "CreatedTime": _to_redfish_datetime(session_data.get("CreatedTime", current_time)),
+            "ExpirationTime": _to_redfish_datetime(session_data.get("ExpirationTime", expiration_time)),
         }
         return jsonify(response), 200
 

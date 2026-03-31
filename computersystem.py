@@ -78,8 +78,12 @@ def get_computer_system():
             "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces",
         },
         "HostedServices": {
-            "DistributedControlNodeServices": {
-                "@odata.id": "/redfish/v1/DistributedControlNode",
+            "Oem": {
+                "OSM003": {
+                    "DistributedControlNodeServices": {
+                        "@odata.id": "/redfish/v1/DistributedControlNode"
+                    }
+                }
             }
         },
         

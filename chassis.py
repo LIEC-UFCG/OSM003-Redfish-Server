@@ -129,9 +129,13 @@ def get_thermalSubsystem():
         "@odata.type": "#ThermalSubsystem.v1_3_3.ThermalSubsystem",
         "Id": "ThermalSubsystem",
         "Name": "Thermal Subsystem for Chassis",
-        "PhysicalContext": "CPU",
         "ThermalMetrics": {
             "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/ThermalSubsystem/ThermalMetrics"
+        },
+        "Oem": {
+            "OSM003": {
+                "PhysicalContext": "CPU"
+            }
         },
         "Status": {
             "State": "Enabled",

@@ -62,6 +62,12 @@ def ensure_dict(value):
     """
     return value if isinstance(value, dict) else {}
 
+def normalize_log_entry_type(entry_type):
+    """Maps custom/internal log entry types to Redfish-allowed values."""
+    allowed_types = {"Event", "SEL", "Oem", "CXL"}
+    normalized = str(entry_type) if entry_type is not None else "Event"
+    return normalized if normalized in allowed_types else "Event"
+
 # Function to return the collection of LogServices available for a System
 def get_log_services_collection(system_id):
     """
@@ -185,12 +191,13 @@ def get_log_entry_by_id(system_id, logservice_id, event_id):
                 "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{logservice_id}/Entries/{event_id}",
                 "Id": log["EventId"],
                 "Name": log["Name"],
-                "EntryType": log["EntryType"],
+                "EntryType": normalize_log_entry_type(log.get("EntryType", "Event")),
                 "Severity": log["Severity"],
                 "Created": log["Created"],
                 "Resolved": log["Resolved"],
                 "Message": log["Message"],
                 "MessageId": log["MessageId"],
+                "Username": log.get("Username", log.get("UserName")),
                 "MessageArgs": log["MessageArgs"]
             }
             return jsonify(response), 200, {"Content-Type": "application/json"}
@@ -217,8 +224,7 @@ def add_log_entry(system_id, logservice_id, entry_type, severity, message, messa
     new_event_id = str(int(datetime.utcnow().timestamp() * 1000))  # Generates an ID based on timestamp
 
     # Ensure that mandatory fields exist before saving
-    if not entry_type:
-        entry_type = "Event"
+    entry_type = normalize_log_entry_type(entry_type)
     if not severity:
         severity = "Warning"
     if not message:
@@ -235,7 +241,7 @@ def add_log_entry(system_id, logservice_id, entry_type, severity, message, messa
         "Severity": severity,
         "Message": message,
         "MessageId": message_id,
-        "UserName": user_name,
+        "Username": user_name,
         "Resolved": False,
         "MessageArgs": []
     }
@@ -254,7 +260,7 @@ def add_log_entry(system_id, logservice_id, entry_type, severity, message, messa
         "Resolved": new_entry["Resolved"],
         "Message": new_entry["Message"],
         "MessageId": new_entry["MessageId"],
-        "UserName": new_entry["UserName"],
+        "Username": new_entry["Username"],
         "MessageArgs": new_entry["MessageArgs"]
     }
 
@@ -290,11 +296,11 @@ def add_audit_log_entry(system_id, logservice_id, message, user_name=None, sever
         "Id": new_event_id,
         "Name": f"Audit Log Entry {new_event_id}",
         "Created": datetime.utcnow().isoformat() + "Z",
-        "EntryType": "Audit",
+        "EntryType": "Event",
         "Severity": severity,
         "Message": message,
         "MessageId": message_id,
-        "UserName": user_name,
+        "Username": user_name,
         "Resolved": False,
         "MessageArgs": []
     }
@@ -335,11 +341,11 @@ def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severi
         "Id": new_event_id,
         "Name": f"Auth Log Entry {new_event_id}",
         "Created": datetime.utcnow().isoformat() + "Z",
-        "EntryType": "Auth",
+        "EntryType": "Event",
         "Severity": severity,
         "Message": message,
         "MessageId": message_id,
-        "UserName": user_name,
+        "Username": user_name,
         "Resolved": False,
         "MessageArgs": []
     }
@@ -381,7 +387,7 @@ def add_event_log_entry(system_id, logservice_id, message, user_name=None, sever
         "Severity": severity,
         "Message": message,
         "MessageId": message_id,
-        "UserName": user_name,
+        "Username": user_name,
         "Resolved": False,
         "MessageArgs": []
     }
@@ -419,11 +425,11 @@ def add_error_log_entry(system_id, logservice_id, message, user_name=None, sever
         "Id": new_event_id,
         "Name": f"Error Log Entry {new_event_id}",
         "Created": datetime.utcnow().isoformat() + "Z",
-        "EntryType": "Error",
+        "EntryType": "Event",
         "Severity": severity,
         "Message": message,
         "MessageId": message_id,
-        "UserName": user_name,
+        "Username": user_name,
         "Resolved": False,
         "MessageArgs": []
     }

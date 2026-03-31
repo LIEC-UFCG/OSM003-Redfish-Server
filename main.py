@@ -870,6 +870,14 @@ def load_log_file(log_file):
             pass
     return []
 
+def normalize_log_entry_type(entry_type):
+    """Maps custom/internal entry types to Redfish-allowed LogEntry values."""
+    allowed_types = {"Event", "SEL", "Oem", "CXL"}
+    normalized = str(entry_type) if entry_type is not None else "Event"
+    if normalized in allowed_types:
+        return normalized
+    return "Event"
+
 def format_log_entry_object(log, system_id, log_type):
     """
     Converts a log dictionary to a complete LogEntry object.
@@ -888,13 +896,13 @@ def format_log_entry_object(log, system_id, log_type):
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{log_type}/Entries/{event_id}",
         "Id": event_id,
         "Name": log.get("Name", f"Log Entry {event_id}"),
-        "EntryType": log.get("EntryType", "Event"),
+        "EntryType": normalize_log_entry_type(log.get("EntryType", "Event")),
         "Severity": log.get("Severity", "Warning"),
         "Created": log.get("Created", ""),
         "Resolved": log.get("Resolved", False),
         "Message": log.get("Message", ""),
         "MessageId": log.get("MessageId", ""),
-        "UserName": log.get("UserName", None),
+        "Username": log.get("Username", log.get("UserName")),
         "MessageArgs": log.get("MessageArgs", [])
     }
 
@@ -907,13 +915,13 @@ def get_log_entry_by_eventid(log_file, system_id, log_type, event_id):
                 "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{log_type}/Entries/{event_id}",
                 "Id": log["EventId"],
                 "Name": log["Name"],
-                "EntryType": log["EntryType"],
+                "EntryType": normalize_log_entry_type(log.get("EntryType", "Event")),
                 "Severity": log["Severity"],
                 "Created": log["Created"],
                 "Resolved": log["Resolved"],
                 "Message": log["Message"],
                 "MessageId": log["MessageId"],
-                "UserName": log.get("UserName"),
+                "Username": log.get("Username", log.get("UserName")),
                 "MessageArgs": log["MessageArgs"]
             }
             return jsonify(response), 200

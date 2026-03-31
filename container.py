@@ -81,35 +81,40 @@ def get_container(system_id, container_id):
             "@odata.id": f"/redfish/v1/Systems/{system_id}/OperatingSystem/Containers/{container.id}",
             "@odata.type": "#Container.v1_0_1.Container",
             "Id": container.id,
-            "ContainerName": container.name,
-            "ContainerState": container.status,
-            "ContainerType": "OCI",
-            "CpuCores": container.attrs['HostConfig'].get('CpuCount', 'Unknown'),
-            "CreateTime": container.attrs['Created'],
-            "MemoryBytes": container.stats(stream=False).get('memory_stats', {}).get('usage', 0),
+            "Name": container.name,
             "Status": {
                 "Health": "OK" if container.status == "running" else "Warning",
                 "State": "Enabled" if container.status == "running" else "Disabled"
             },
-            "Images": [
-                {
-                    "ImageHash": container.attrs['Config'].get('Image', 'Unknown'),
-                    "ImageName": container.attrs.get('Config', {}).get('Image', 'Unknown'),
-                    "ImageSizeBytes": container.attrs.get('Size', 'Unknown'),
-                    "ImageType": "OCI",
-                    "ImageVersion": container.attrs['Config'].get('Image', 'Unknown').split(':')[-1]
+            "Oem": {
+                "OSM003": {
+                    "ContainerName": container.name,
+                    "ContainerState": container.status,
+                    "ContainerType": "OCI",
+                    "CpuCores": container.attrs['HostConfig'].get('CpuCount', 'Unknown'),
+                    "CreateTime": container.attrs['Created'],
+                    "MemoryBytes": container.stats(stream=False).get('memory_stats', {}).get('usage', 0),
+                    "Images": [
+                        {
+                            "ImageHash": container.attrs['Config'].get('Image', 'Unknown'),
+                            "ImageName": container.attrs.get('Config', {}).get('Image', 'Unknown'),
+                            "ImageSizeBytes": container.attrs.get('Size', 'Unknown'),
+                            "ImageType": "OCI",
+                            "ImageVersion": container.attrs['Config'].get('Image', 'Unknown').split(':')[-1]
+                        }
+                    ],
+                    "NetworkInterfaces": [
+                        {
+                            "InterfaceName": interface_name,
+                            "Network": interface_info.get('NetworkID', 'Unknown'),
+                            "Subnet": interface_info.get('IPAddress', 'Unknown'),
+                            "IPAddresses": [interface_info.get('IPAddress', 'Unknown')]
+                        }
+                        for interface_name, interface_info in container.attrs.get('NetworkSettings', {}).get('Networks', {}).items()
+                    ],
+                    "Volumes": volumes
                 }
-            ],
-            "NetworkInterfaces": [
-                {
-                    "InterfaceName": interface_name,
-                    "Network": interface_info.get('NetworkID', 'Unknown'),
-                    "Subnet": interface_info.get('IPAddress', 'Unknown'),
-                    "IPAddresses": [interface_info.get('IPAddress', 'Unknown')]
-                }
-                for interface_name, interface_info in container.attrs.get('NetworkSettings', {}).get('Networks', {}).items()
-            ],
-            "Volumes": volumes,  # Always includes the Volumes section with default or filled structure
+            },
             "Actions": {
                 "#Container.Reset": {
                     "target": f"/redfish/v1/Systems/{system_id}/OperatingSystem/Containers/{container_id}/Actions/Container.Reset",

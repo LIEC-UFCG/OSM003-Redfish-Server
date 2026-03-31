@@ -12,6 +12,35 @@ import threading
 # pip install py-cpuinfo
 
 
+def _capacity_to_bytes(value):
+    """Converts capacity values (e.g. 40G, 512M, 123456) to integer bytes."""
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, str):
+        text = value.strip().upper()
+        if text.isdigit():
+            return int(text)
+
+        suffix_factors = {
+            "K": 1024,
+            "M": 1024 ** 2,
+            "G": 1024 ** 3,
+            "T": 1024 ** 4,
+            "P": 1024 ** 5,
+        }
+
+        for suffix, factor in suffix_factors.items():
+            if text.endswith(suffix):
+                number_part = text[:-1].strip()
+                try:
+                    return int(float(number_part) * factor)
+                except (ValueError, TypeError):
+                    return None
+
+    return None
+
+
 def get_computer():
     """
     Returns the collection of computer systems.
@@ -566,7 +595,7 @@ def dynamic_storage_funcs():
                             "Name": stats.get('device_name', f"Device {str_number}"),
                             "Manufacturer": stats.get('manufacturer', "Unknown"),
                             "Model": stats.get('model', "Unknown"),
-                            "CapacityBytes": int(stats['capacitybytes']) if isinstance(stats.get('capacitybytes'), str) and stats['capacitybytes'].isdigit() else stats.get('capacitybytes'),
+                            "CapacityBytes": _capacity_to_bytes(stats.get('capacitybytes')),
 
                             "Status": {
                                 "Health": stats.get('device_health', "OK"),  # Adding device Status

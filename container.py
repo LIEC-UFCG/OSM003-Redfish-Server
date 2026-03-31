@@ -87,7 +87,10 @@ def get_container(system_id, container_id):
             "CpuCores": container.attrs['HostConfig'].get('CpuCount', 'Unknown'),
             "CreateTime": container.attrs['Created'],
             "MemoryBytes": container.stats(stream=False).get('memory_stats', {}).get('usage', 0),
-            "Status": "OK" if container.status == "running" else "Stopped",
+            "Status": {
+                "Health": "OK" if container.status == "running" else "Warning",
+                "State": "Enabled" if container.status == "running" else "Disabled"
+            },
             "Images": [
                 {
                     "ImageHash": container.attrs['Config'].get('Image', 'Unknown'),

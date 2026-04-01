@@ -80,7 +80,6 @@ def get_computer_system():
         "HostedServices": {
             "Oem": {
                 "OSM003": {
-                    "@odata.type": "#Resource.OemObject",
                     "DistributedControlNodeServices": {
                         "@odata.id": "/redfish/v1/DistributedControlNode"
                     }

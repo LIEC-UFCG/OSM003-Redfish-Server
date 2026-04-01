@@ -14,7 +14,6 @@ def get_operating_system():
         "Name": "Operating System",
         "Oem": {
             "OSM003": {
-                "@odata.type": "#Resource.OemObject",
                 "AccumulatedRunTime": "Unknown",
                 "Hostname": readings.get_hostname(),
                 "KernelName": readings.get_kernel_name(),
@@ -59,8 +58,8 @@ def get_operating_system_metrics():
 
     metrics = {
         "@odata.context": "/redfish/v1/$metadata#OperatingSystemMetrics.OperatingSystemMetrics",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem",
-        "@odata.type": "#OperatingSystemMetrics.v1_0_0.OperatingSystemMetrics",
+        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem/OperatingSystemMetrics",
+        "@odata.type": "#OperatingSystemMetrics.OperatingSystemMetrics",
         "EthernetInterfaceMetrics": readings.get_ethernet_metrics(
             readings.service_enabled_state["EthernetInterfaceMetrics"]
         ),

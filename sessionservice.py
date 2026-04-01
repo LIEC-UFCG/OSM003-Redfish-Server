@@ -62,7 +62,8 @@ def get_session_service():
         "ServiceEnabled": session_service_state["ServiceEnabled"],
         "SessionTimeout": session_service_state["SessionTimeout"],
         "Sessions": {
-            "@odata.id": f"/redfish/v1/SessionService/Sessions"
+            "@odata.id": f"/redfish/v1/SessionService/Sessions",
+            "@odata.type": "#SessionCollection.v1_8_0.SessionCollection"
         },
         "Status": session_service_state["Status"]
     }

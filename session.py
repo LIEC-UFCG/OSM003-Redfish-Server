@@ -214,7 +214,7 @@ def get_sessions():
     sessions = load_sessions()
     response = {
         "@odata.id": "/redfish/v1/SessionService/Sessions",
-        "@odata.type": "#SessionCollection.SessionCollection",
+        "@odata.type": "#SessionCollection.v1_0_0.SessionCollection",
         "Name": "Session Collection",
         "Members": [{"@odata.id": f"/redfish/v1/SessionService/Sessions/{session_id}"} for session_id in sessions.keys()],
         "Members@odata.count": len(sessions)

@@ -82,13 +82,26 @@ def get_event_service():
         },
         "DeliveryRetryAttempts": readings.get_delivery_retry_attempts(),             # Read and write
         "DeliveryRetryIntervalSeconds": readings.get_delivery_retry_interval_seconds(),     # Read and write
-        "EventTypesForSubscription": [
-            "StatusChange",
-            "ResourceUpdated",
-            "ResourceAdded",
-            "ResourceRemoved",
-            "Alert"
+        "RegistryPrefixes": [
+            "Base"
         ],
+        "ResourceTypes": [
+            "ComputerSystem",
+            "Manager",
+            "Chassis"
+        ],
+        "Oem": {
+            "OSM003": {
+                "@odata.type": "#OemObject.OemObject",
+                "EventTypesForSubscription": [
+                    "StatusChange",
+                    "ResourceUpdated",
+                    "ResourceAdded",
+                    "ResourceRemoved",
+                    "Alert"
+                ]
+            }
+        },
         "ServiceEnabled": readings.get_service_enabled(),                 # Read and write
         "Status": {
             "Health": "OK",

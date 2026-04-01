@@ -80,6 +80,7 @@ def get_computer_system():
         "HostedServices": {
             "Oem": {
                 "OSM003": {
+                    "@odata.type": "#Resource.OemObject",
                     "DistributedControlNodeServices": {
                         "@odata.id": "/redfish/v1/DistributedControlNode"
                     }
@@ -108,14 +109,6 @@ def get_computer_system():
         #    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Memory"
         #},
         "MemorySummary": {
-            "Oem": {
-                "OSM003": {
-                    "Status": {
-                        "Health": readings.memory_health(),
-                        "State": "Enabled"
-                    }
-                }
-            },
             "TotalSystemMemoryGiB": readings.memory_total(),
         },
         "Model": readings.model(),
@@ -125,14 +118,6 @@ def get_computer_system():
         "ProcessorSummary": {
             "Count": 1,  # Raspberry Pi has 1 physical processor
             "Model": readings.cpu_model(),  # Processor model
-            "Oem": {
-                "OSM003": {
-                    "Status": {
-                        "Health": readings.cpu_health(),
-                        "State": "Enabled"
-                    }
-                }
-            }
         },
         "Processors": {
             "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/Processors"

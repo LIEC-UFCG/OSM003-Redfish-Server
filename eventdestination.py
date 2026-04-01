@@ -61,6 +61,7 @@ def normalize_event_subscription(subscription_id, subscription):
     if legacy_event_types is not None:
         normalized["Oem"] = {
             "OSM003": {
+                "@odata.type": "#Resource.OemObject",
                 "EventTypes": legacy_event_types
             }
         }

@@ -14,7 +14,6 @@ def get_operating_system():
         "Name": "Operating System",
         "Oem": {
             "OSM003": {
-                "@odata.type": "#Resource.OemObject",
                 "AccumulatedRunTime": "Unknown",
                 "Hostname": readings.get_hostname(),
                 "KernelName": readings.get_kernel_name(),

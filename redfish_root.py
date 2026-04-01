@@ -42,11 +42,6 @@ def get_redfish_v1():
         "JsonSchemas": {
             "@odata.id": "/redfish/v1/JsonSchemas"
         },
-        "Links": {
-            "Sessions": {
-                "@odata.id": "/redfish/v1/SessionService/Sessions"
-            },
-        },
         "Managers":{
             "@odata.id": "/redfish/v1/Managers"
         },

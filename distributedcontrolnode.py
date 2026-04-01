@@ -12,7 +12,6 @@ def get_dcn():
         "Name": "Distributed Control Node",
         "Oem": {
             "OSM003": {
-                "@odata.type": "#OemObject.OemObject",
                 "NodeType": "DCN",  # O-PAS node type, can be "DCN" or another value
                 "OPASCompatibility": {
                     "OPASCertificationStatus": "Unknown",  # If implemented, O-PAS certification status for this profile

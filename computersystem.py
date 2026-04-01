@@ -80,7 +80,6 @@ def get_computer_system():
         "HostedServices": {
             "Oem": {
                 "OSM003": {
-                    "@odata.type": "#OemObject.OemObject",
                     "DistributedControlNodeServices": {
                         "@odata.id": "/redfish/v1/DistributedControlNode"
                     }
@@ -111,7 +110,6 @@ def get_computer_system():
         "MemorySummary": {
             "Oem": {
                 "OSM003": {
-                    "@odata.type": "#OemObject.OemObject",
                     "Status": {
                         "Health": readings.memory_health(),
                         "State": "Enabled"
@@ -129,7 +127,6 @@ def get_computer_system():
             "Model": readings.cpu_model(),  # Processor model
             "Oem": {
                 "OSM003": {
-                    "@odata.type": "#OemObject.OemObject",
                     "Status": {
                         "Health": readings.cpu_health(),
                         "State": "Enabled"

@@ -1,0 +1,26 @@
+[
+    {
+        "EventId": "1",
+        "Name": "Audit Log Entry 1",
+        "EntryType": "Event",
+        "Severity": "OK",
+        "Created": "2024-01-01T00:00:00Z",
+        "Resolved": false,
+        "Message": "User logged in successfully",
+        "MessageId": "Base.1.0.AccountCreated",
+        "MessageArgs": [],
+        "Username": "admin"
+    },
+    {
+        "EventId": "2",
+        "Name": "Audit Log Entry 2",
+        "EntryType": "Event",
+        "Severity": "OK",
+        "Created": "2024-01-01T01:00:00Z",
+        "Resolved": false,
+        "Message": "System configuration changed",
+        "MessageId": "Base.1.0.PropertyModified",
+        "MessageArgs": [],
+        "Username": "admin"
+    }
+]

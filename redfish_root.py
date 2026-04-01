@@ -55,7 +55,6 @@ def get_redfish_v1():
             "@odata.id":  "/redfish/v1/UpdateService"
         },
         "Links": {
-            "@odata.type": "#Collection.Collection",
             "Sessions": {
                 "@odata.id": "/redfish/v1/SessionService/Sessions"
             }

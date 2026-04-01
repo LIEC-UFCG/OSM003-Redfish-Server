@@ -971,7 +971,7 @@ def audit_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuditLog/Entries",
         "Name": "Audit Log Entries Collection",
-        "Members": [format_log_entry_object(log, system_id, "AuditLog") for log in logs],
+        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuditLog/Entries/{log.get('EventId')}"} for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -986,7 +986,7 @@ def auth_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuthLog/Entries",
         "Name": "Auth Log Entries Collection",
-        "Members": [format_log_entry_object(log, system_id, "AuthLog") for log in logs],
+        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/AuthLog/Entries/{log.get('EventId')}"} for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -1001,7 +1001,7 @@ def event_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/EventLog/Entries",
         "Name": "Event Log Entries Collection",
-        "Members": [format_log_entry_object(log, system_id, "EventLog") for log in logs],
+        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/EventLog/Entries/{log.get('EventId')}"} for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)
@@ -1016,7 +1016,7 @@ def error_log_entries(system_id):
         "@odata.type": "#LogEntryCollection.LogEntryCollection",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/ErrorLog/Entries",
         "Name": "Error Log Entries Collection",
-        "Members": [format_log_entry_object(log, system_id, "ErrorLog") for log in logs],
+        "Members": [{"@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/ErrorLog/Entries/{log.get('EventId')}"} for log in logs],
         "Members@odata.count": len(logs)
     }
     return jsonify(response)

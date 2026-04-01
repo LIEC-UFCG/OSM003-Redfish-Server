@@ -186,6 +186,7 @@ def get_log_entry_by_id(system_id, logservice_id, event_id):
     
     for log in logs:
         if str(log["EventId"]) == str(event_id):
+            username = log.get("Username", log.get("UserName"))
             response = {
                 "@odata.type": "#LogEntry.v1_17_0.LogEntry",
                 "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{logservice_id}/Entries/{event_id}",
@@ -197,9 +198,10 @@ def get_log_entry_by_id(system_id, logservice_id, event_id):
                 "Resolved": log["Resolved"],
                 "Message": log["Message"],
                 "MessageId": log["MessageId"],
-                "Username": log.get("Username", log.get("UserName")),
                 "MessageArgs": log["MessageArgs"]
             }
+            if username not in (None, ""):
+                response["Username"] = username
             return jsonify(response), 200, {"Content-Type": "application/json"}
 
     return make_response(jsonify({"error": "Log entry not found"}), 404)

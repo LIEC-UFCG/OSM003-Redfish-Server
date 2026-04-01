@@ -134,7 +134,7 @@ def get_thermalSubsystem():
         },
         "Oem": {
             "OSM003": {
-                "@odata.type": "#OemObject.OemObject",
+                "@odata.type": "#Resource.OemObject",
                 "PhysicalContext": "CPU"
             }
         },

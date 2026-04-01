@@ -92,7 +92,7 @@ def get_event_service():
         ],
         "Oem": {
             "OSM003": {
-                "@odata.type": "#OemObject.OemObject",
+                "@odata.type": "#Resource.OemObject",
                 "EventTypesForSubscription": [
                     "StatusChange",
                     "ResourceUpdated",

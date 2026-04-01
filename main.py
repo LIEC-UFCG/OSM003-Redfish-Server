@@ -891,7 +891,8 @@ def format_log_entry_object(log, system_id, log_type):
         dict: Complete LogEntry object with all required properties
     """
     event_id = log.get("EventId", "")
-    return {
+    username = log.get("Username", log.get("UserName"))
+    response = {
         "@odata.type": "#LogEntry.v1_17_0.LogEntry",
         "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{log_type}/Entries/{event_id}",
         "Id": event_id,
@@ -902,14 +903,17 @@ def format_log_entry_object(log, system_id, log_type):
         "Resolved": log.get("Resolved", False),
         "Message": log.get("Message", ""),
         "MessageId": log.get("MessageId", ""),
-        "Username": log.get("Username", log.get("UserName")),
         "MessageArgs": log.get("MessageArgs", [])
     }
+    if username not in (None, ""):
+        response["Username"] = username
+    return response
 
 def get_log_entry_by_eventid(log_file, system_id, log_type, event_id):
     logs = load_log_file(log_file)
     for log in logs:
         if str(log["EventId"]) == str(event_id):
+            username = log.get("Username", log.get("UserName"))
             response = {
                 "@odata.type": "#LogEntry.v1_17_0.LogEntry",
                 "@odata.id": f"/redfish/v1/Systems/{system_id}/LogServices/{log_type}/Entries/{event_id}",
@@ -921,9 +925,10 @@ def get_log_entry_by_eventid(log_file, system_id, log_type, event_id):
                 "Resolved": log["Resolved"],
                 "Message": log["Message"],
                 "MessageId": log["MessageId"],
-                "Username": log.get("Username", log.get("UserName")),
                 "MessageArgs": log["MessageArgs"]
             }
+            if username not in (None, ""):
+                response["Username"] = username
             return jsonify(response), 200
     return jsonify({"error": "Log entry not found"}), 404
 

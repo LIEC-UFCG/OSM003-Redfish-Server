@@ -9,7 +9,7 @@ default_update_service_state = {
     "ServiceEnabled": True,
     #"FirmwareInventory": "/redfish/v1/UpdateService/FirmwareInventory",
     #"SoftwareInventory": "/redfish/v1/UpdateService/SoftwareInventory",
-    "HttpPushUri": "http://example.com/upload_firmware",
+    #"HttpPushUri": "http://example.com/upload_firmware",
     "MaxImageSizeBytes": 100000000,
     "Status": {
         "Health": "OK",

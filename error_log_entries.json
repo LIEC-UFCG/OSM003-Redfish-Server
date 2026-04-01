@@ -1,24 +1,24 @@
 [
     {
         "EventId": "1",
-        "Name": "Log Entry 1",
+        "Name": "Error Log Entry 1",
         "EntryType": "Event",
-        "Severity": "OK",
+        "Severity": "Critical",
         "Created": "2024-01-01T00:00:00Z",
         "Resolved": false,
-        "Message": "System started successfully",
-        "MessageId": "Base.1.0.Success",
+        "Message": "Critical system error",
+        "MessageId": "Base.1.0.InternalError",
         "MessageArgs": []
     },
     {
         "EventId": "2",
-        "Name": "Log Entry 2",
+        "Name": "Error Log Entry 2",
         "EntryType": "Event",
         "Severity": "Warning",
         "Created": "2024-01-01T01:00:00Z",
         "Resolved": false,
-        "Message": "Temperature sensor reading high",
-        "MessageId": "Base.1.0.Warning",
+        "Message": "Recovery procedure initiated",
+        "MessageId": "Base.1.0.RecoveryInProgress",
         "MessageArgs": []
     }
 ]

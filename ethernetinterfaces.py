@@ -34,7 +34,7 @@ def dynamic_eth_funcs():
                     "LinkStatus": stats['link_status'],
                     "MACAddress": stats['mac_address'],
                     "SpeedMbps": int(stats['speed_mbps']) if isinstance(stats['speed_mbps'], str) and stats['speed_mbps'].isdigit() else stats['speed_mbps'],
-                    "Status": {"State": stats['state']},
+                    "Status": {"State": stats['state'], "Health": "OK"},
                     #"Gateway": stats.get('gateway', "0.0.0.0"),  # If missing, assumes "0.0.0.0"
                     "NameServers": stats['dns'],
                     "@odata.context": "/redfish/v1/$metadata#EthernetInterface.EthernetInterface",  # Corrected

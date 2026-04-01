@@ -47,7 +47,8 @@ def normalize_event_subscription(subscription_id, subscription):
         "Context": subscription.get("Context", ""),
         "Destination": subscription.get("Destination", ""),
         "Protocol": subscription.get("Protocol", "Redfish"),
-        "SubscriptionType": subscription.get("SubscriptionType", "RedfishEvent")
+        "SubscriptionType": subscription.get("SubscriptionType", "RedfishEvent"),
+        "EventTypes": subscription.get("EventTypes", ["StatusChange", "ResourceUpdated", "ResourceAdded", "ResourceRemoved", "Alert"])
     }
 
     if "RegistryPrefixes" in subscription:

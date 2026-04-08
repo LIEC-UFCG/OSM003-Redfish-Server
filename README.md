@@ -82,11 +82,19 @@ pip install Flask psutil py-cpuinfo bcrypt ssdpy docker apscheduler Flask-Limite
 ```
 
 #### Review configuration
-Adjust host/port/certificate settings in [config.py](config.py):
+Adjust runtime settings in [server_config.json](server_config.json) (recommended), or override with environment variables when needed.
+
+Main options:
 - `FLASK_IP`
 - `FLASK_PORT`
 - `CERT_FILE`
 - `KEY_FILE`
+- `ENABLE_RATE_LIMIT`
+- `RATE_LIMIT`
+- `ALLOW_MULTIPLE_SESSIONS`
+- `SESSION_TIMEOUT`
+- `ENABLE_DOCKER_GROUP` (used by `setup_source.sh`)
+- `RUN_SERVER_AFTER_SETUP` (used by `setup_source.sh`)
 
 #### Start the server
 ```bash
@@ -201,7 +209,8 @@ curl -k -X DELETE https://127.0.0.1:5004/redfish/v1/SessionService/Sessions/<ses
 ```
 
 Notes:
-- If a user already has an active session, creating another session returns `409`.
+- Multiple sessions per user are allowed by default (Redfish-friendly).
+- To enable optional hardening (single active session per user), set `ALLOW_MULTIPLE_SESSIONS` to `false` in [server_config.json](server_config.json).
 - Account lockout and password constraints are enforced by AccountService settings.
 
 ---

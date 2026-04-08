@@ -274,6 +274,18 @@ def add_log_entry(system_id, logservice_id, entry_type, severity, message, messa
 
 MAX_LOG_ENTRIES = 1000
 
+
+def _load_log_list(file_path):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as file:
+                logs = json.load(file)
+                if isinstance(logs, list):
+                    return logs
+        except Exception:
+            pass
+    return []
+
 def add_audit_log_entry(system_id, logservice_id, message, user_name=None, severity="OK", message_id="Audit.Action.Success"):
     """
     Adds a new audit log entry.
@@ -286,12 +298,7 @@ def add_audit_log_entry(system_id, logservice_id, message, user_name=None, sever
         severity (str, optional): Severity level. Defaults to "OK".
         message_id (str, optional): Message identifier. Defaults to "Audit.Action.Success".
     """
-    if os.path.exists(AUDIT_LOG_FILE):
-        try:
-            with open(AUDIT_LOG_FILE, "r") as f:
-                logs = json.load(f)
-        except Exception:
-            logs = []
+    logs = _load_log_list(AUDIT_LOG_FILE)
     new_event_id = str(int(datetime.utcnow().timestamp() * 1000))
     new_entry = {
         "EventId": new_event_id,
@@ -331,12 +338,7 @@ def add_auth_log_entry(system_id, logservice_id, message, user_name=None, severi
         severity (str, optional): Severity level. Defaults to "OK".
         message_id (str, optional): Message identifier. Defaults to "Auth.Action.Success".
     """
-    if os.path.exists(AUTH_LOG_FILE):
-        try:
-            with open(AUTH_LOG_FILE, "r") as f:
-                logs = json.load(f)
-        except Exception:
-            logs = []
+    logs = _load_log_list(AUTH_LOG_FILE)
     new_event_id = str(int(datetime.utcnow().timestamp() * 1000))
     new_entry = {
         "EventId": new_event_id,
@@ -373,12 +375,7 @@ def add_event_log_entry(system_id, logservice_id, message, user_name=None, sever
         severity (str, optional): Severity level. Defaults to "OK".
         message_id (str, optional): Message identifier. Defaults to "Event.Action.Success".
     """
-    if os.path.exists(EVENT_LOG_FILE):
-        try:
-            with open(EVENT_LOG_FILE, "r") as f:
-                logs = json.load(f)
-        except Exception:
-            logs = []
+    logs = _load_log_list(EVENT_LOG_FILE)
     new_event_id = str(int(datetime.utcnow().timestamp() * 1000))
     new_entry = {
         "EventId": new_event_id,
@@ -415,12 +412,7 @@ def add_error_log_entry(system_id, logservice_id, message, user_name=None, sever
         severity (str, optional): Severity level. Defaults to "Critical".
         message_id (str, optional): Message identifier. Defaults to "Error.Action.Failed".
     """
-    if os.path.exists(ERROR_LOG_FILE):
-        try:
-            with open(ERROR_LOG_FILE, "r") as f:
-                logs = json.load(f)
-        except Exception:
-            logs = []
+    logs = _load_log_list(ERROR_LOG_FILE)
     new_event_id = str(int(datetime.utcnow().timestamp() * 1000))
     new_entry = {
         "EventId": new_event_id,

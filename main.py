@@ -29,7 +29,7 @@ import time
 from session import load_sessions, save_sessions
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from config import FLASK_PORT, FLASK_IP, CERT_FILE, KEY_FILE
+from config import FLASK_PORT, FLASK_IP, CERT_FILE, KEY_FILE, ENABLE_RATE_LIMIT, RATE_LIMIT
 import subprocess
 from gerar_certificado_dinamico import obter_ip_local, gerar_certificados, certificados_estao_atualizados, registrar_certificado_no_sistema
 from flask_talisman import Talisman
@@ -81,10 +81,6 @@ limiter = Limiter(
     default_limits=[],
     storage_uri=RATE_LIMIT_STORAGE_URI if RATE_LIMIT_STORAGE_URI else "memory://"
 )
-
-RATE_LIMIT = "1 per second"
-# Control rate limiting via environment variable: 1/true/yes/on enables it.
-ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").strip().lower() in ("1", "true", "yes", "on")
 
 def conditional_limit(limit):
     def decorator(func):

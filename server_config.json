@@ -1,0 +1,13 @@
+{
+    "FLASK_PORT": 5004,
+    "FLASK_IP": "0.0.0.0",
+    "CERT_FILE": "domainSAN.crt",
+    "KEY_FILE": "domain.key",
+    "SESSION_TIMEOUT": 3600,
+    "DCN_ID": "DCN1",
+    "ENABLE_RATE_LIMIT": true,
+    "RATE_LIMIT": "1 per second",
+    "ALLOW_MULTIPLE_SESSIONS": true,
+    "ENABLE_DOCKER_GROUP": false,
+    "RUN_SERVER_AFTER_SETUP": false
+}

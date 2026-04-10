@@ -1570,7 +1570,10 @@ if __name__ == '__main__':
         if os.getenv("REGISTER_CERT_IN_SYSTEM", "false").lower() == "true":
          registrar_certificado_no_sistema()
 
-    ssdp_control.start_ssdp()
+    if readings.get_ssdp_enabled():
+        ssdp_control.start_ssdp()
+    else:
+        print("SSDP disabled at startup by ManagerNetworkProtocol setting.")
 
     # Start Flask server in a separate process
     # Flask process is started with configured IP and port

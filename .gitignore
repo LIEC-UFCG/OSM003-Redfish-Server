@@ -43,3 +43,6 @@ build_docs.ps1
 make.bat
 Makefile
 source/
+
+# Internal management reports (private, non-public)
+internal_reports/

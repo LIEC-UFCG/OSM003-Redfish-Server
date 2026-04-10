@@ -10,7 +10,6 @@ The primary objective of this project is to demonstrate how abstract industrial 
 ## Citation
 If you use this software in research, please cite it as described in [CITATION.cff](CITATION.cff).
 
-
 ## Core Capabilities & Security Controls
 
 This project is built to function both as a robust asset management interface and as a hardened security case study. The features are divided into core operational capabilities and standards-based security controls.

@@ -2326,7 +2326,37 @@ def get_metrics_timestamp():
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-ssdp_enabled = True
+SSDP_CONFIG_FILE = "ssdp_config.json"
+
+
+def _load_ssdp_config():
+    """Load persisted SSDP settings from disk.
+
+    Returns:
+        dict: SSDP configuration dictionary with ProtocolEnabled key.
+    """
+    if os.path.exists(SSDP_CONFIG_FILE):
+        try:
+            with open(SSDP_CONFIG_FILE, "r") as file:
+                data = json.load(file)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {"ProtocolEnabled": True}
+
+
+def _save_ssdp_config(enabled):
+    """Persist SSDP enabled state to disk.
+
+    Args:
+        enabled (bool): Desired SSDP protocol enabled state.
+    """
+    try:
+        with open(SSDP_CONFIG_FILE, "w") as file:
+            json.dump({"ProtocolEnabled": bool(enabled)}, file)
+    except Exception as e:
+        print(f"Error updating SSDP.ProtocolEnabled: {e}")
 
 def get_ssdp_enabled():
     """
@@ -2335,7 +2365,8 @@ def get_ssdp_enabled():
     Returns:
         bool: Current SSDP enabled state.
     """
-    return ssdp_enabled
+    config = _load_ssdp_config()
+    return bool(config.get("ProtocolEnabled", True))
 
 def set_ssdp_enabled(value):
     """
@@ -2344,5 +2375,4 @@ def set_ssdp_enabled(value):
     Args:
         value (bool): New SSDP state.
     """
-    global ssdp_enabled
-    ssdp_enabled = value
+    _save_ssdp_config(bool(value))

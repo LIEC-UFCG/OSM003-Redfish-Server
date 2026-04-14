@@ -417,7 +417,7 @@ def get_chassis_id(system_id):
             - PATCH: Updates chassis AssetTag and returns success or error message.
     """
     if request.method == 'GET':
-        return chassis.get_chassis_id()
+        return chassis.get_chassis_id(system_id)
     elif request.method == 'PATCH':
         data = request.get_json()
         if "AssetTag" in data:
@@ -581,7 +581,7 @@ def get_computer_id(system_id):
     Returns:
         Detailed information about the computer system identified by machine_id.
     """
-    return computersystem.get_computer_system()
+    return computersystem.get_computer_system(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/Processors endpoint
 # Returns information about the computer system processors
@@ -595,7 +595,7 @@ def get_systems_id_processors(system_id):
     Returns:
         Information about the computer system processors.
     """
-    return computersystem.get_systems_id_processors()
+    return computersystem.get_systems_id_processors(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/Processors/CPU1 endpoint
 # Returns detailed information about the CPU1 processor of the computer system
@@ -609,7 +609,7 @@ def get_systems_id_processors_cpu1(system_id):
     Returns:
         Detailed information about the CPU1 processor of the computer system.
     """
-    return computersystem.get_systems_id_processors_cpu1()
+    return computersystem.get_systems_id_processors_cpu1(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/SimpleStorage
 # Returns information about simple storage devices of the system
@@ -623,7 +623,7 @@ def get_systems_id_simpleStorage(system_id):
     Returns:
         Information about simple storage devices of the system.
     """
-    return computersystem.get_systems_id_simpleStorage()
+    return computersystem.get_systems_id_simpleStorage(system_id)
 
 
 if os.environ.get("SPHINX_BUILD") != "1":
@@ -633,7 +633,7 @@ if os.environ.get("SPHINX_BUILD") != "1":
         # Register each function as a Flask route
         # The function name is used to create the route, removing the 'storage_' prefix
         # The HTTP method is set to GET
-        route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
+        route = f"/redfish/v1/Systems/<system_id>/SimpleStorage/{func.__name__.replace('storage_', '')}"
         # Manually chain decorators
         protected_func = requires_privilege("SimpleStorage")(
                             requires_authentication(func)
@@ -1090,24 +1090,24 @@ def distributed_control_node_endpoint():
     return distributedcontrolnode.get_dcn()
 
 # Route to retrieve Ethernet interfaces
-@app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces', methods=['GET'], strict_slashes=False) 
+@app.route('/redfish/v1/Systems/<system_id>/EthernetInterfaces', methods=['GET'], strict_slashes=False) 
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterfaceCollection")
-def get_computersystem_id_ethernetInterfaces():
+def get_computersystem_id_ethernetInterfaces(system_id):
     """Route to retrieve Ethernet interfaces.
     
     Returns:
         All interfaces in the EthernetInterfaces JSON.
     """
-    return ethernetinterfaces.get_computersystem_id_ethernetInterfaces()
+    return ethernetinterfaces.get_computersystem_id_ethernetInterfaces(system_id)
 
 # Route to retrieve detailed information of a specific Ethernet interface
-@app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces/<iface>', methods=['GET'], strict_slashes=False)
+@app.route('/redfish/v1/Systems/<system_id>/EthernetInterfaces/<iface>', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterface")
-def get_computersystem_id_ethernetInterfaces_iface(iface):
+def get_computersystem_id_ethernetInterfaces_iface(system_id, iface):
     """Allow retrieving detailed information of a specific Ethernet interface.
     
     Args:
@@ -1122,7 +1122,7 @@ def get_computersystem_id_ethernetInterfaces_iface(iface):
     # If function name matches iface parameter, call the function
     for func in funcs:
         if func.__name__ == iface:
-            return func()
+            return func(system_id)
     abort(404)
 
 # Allow retrieving and updating event service information

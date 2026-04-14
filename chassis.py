@@ -1,53 +1,60 @@
 import readings
 
-def get_chassis():
+
+def _resolve_system_id(system_id=None):
+    """Return the requested system ID or fall back to the local machine ID."""
+    return system_id or readings.machine_id()
+
+def get_chassis(system_id=None):
     """
     Returns the system chassis collection.
 
     Returns:
         dict: Dictionary with chassis collection information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     chassis = {
         "@odata.type": "#ChassisCollection.ChassisCollection",
         "Name": "Chassis Collection",
         "Members@odata.count": 1,
         "Members": [
             {
-                "@odata.id": "/redfish/v1/Chassis/" + readings.machine_id()
+                "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}"
             }
         ],
         "@odata.id": "/redfish/v1/Chassis"
     }
     return chassis
 
-def get_chassis_id():
+def get_chassis_id(system_id=None):
     """
     Returns detailed information about the chassis identified by ID.
 
     Returns:
         dict: Dictionary with chassis information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     chassis_id = {
         "@odata.type": "#Chassis.v1_26_0.Chassis",
-        "Id": readings.machine_id(),
+        "Id": resolved_system_id,
         "Name": "Computer System Chassis",
         "AssetTag": readings.get_asset_tag(),
         "ChassisType": readings.get_chassis_type(),
         "Links": {
             "ComputerSystems": [
                 {
-                    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id()
+                    "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}"
                 }
             ],
 
             "ManagedBy": [
                 {
-                    "@odata.id": "/redfish/v1/Managers/" + readings.machine_id()
+                    "@odata.id": f"/redfish/v1/Managers/{resolved_system_id}"
                 }
             ],
         },
         "ThermalSubsystem": {
-            "@odata.id": "/redfish/v1/Chassis/" + readings.machine_id() + "/ThermalSubsystem"
+            "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/ThermalSubsystem"
         },
         "Manufacturer": readings.manufacturer(),
         "Model": readings.model(),
@@ -58,18 +65,18 @@ def get_chassis_id():
             "Health": readings.cpu_health(),
             "State": "Enabled"
         },
-        "@odata.id": "/redfish/v1/Chassis/" + readings.machine_id()
+        "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}"
     }
     return chassis_id
 
-def get_sensors():
+def get_sensors(system_id=None):
     """
     Returns information about chassis sensors.
 
     Returns:
         dict: Dictionary with readings from chassis sensors in Redfish format.
     """
-    machine_id = readings.machine_id()
+    machine_id = _resolve_system_id(system_id)
     sensors = {
         "@odata.type": "#SensorCollection.SensorCollection",
         "Name": "Chassis Sensors",
@@ -83,7 +90,7 @@ def get_sensors():
     }
     return sensors
 
-def get_sensor(sensor_id):
+def get_sensor(sensor_id, system_id=None):
     """
     Returns details for a single chassis sensor.
 
@@ -93,7 +100,7 @@ def get_sensor(sensor_id):
     Returns:
         tuple: (dict, int) Sensor payload and HTTP status code.
     """
-    machine_id = readings.machine_id()
+    machine_id = _resolve_system_id(system_id)
 
     if sensor_id != "CPUTemp":
         return {"error": "Sensor not found"}, 404
@@ -118,19 +125,20 @@ def get_sensor(sensor_id):
     }
     return sensor_payload, 200
 
-def get_thermalSubsystem():
+def get_thermalSubsystem(system_id=None):
     """
     Returns information about the chassis thermal subsystem.
 
     Returns:
         dict: Dictionary with thermal subsystem information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     thermalsub = {
         "@odata.type": "#ThermalSubsystem.v1_3_3.ThermalSubsystem",
         "Id": "ThermalSubsystem",
         "Name": "Thermal Subsystem for Chassis",
         "ThermalMetrics": {
-            "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/ThermalSubsystem/ThermalMetrics"
+            "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/ThermalSubsystem/ThermalMetrics"
         },
         "Oem": {
             "OSM003": {
@@ -141,18 +149,18 @@ def get_thermalSubsystem():
             "State": "Enabled",
             "Health": readings.temp_health()
         },
-        "@odata.id": "/redfish/v1/Chassis/" + readings.machine_id() + "/ThermalSubsystem"
+        "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/ThermalSubsystem"
     }
     return thermalsub
 
-def get_thermalMetrics():
+def get_thermalMetrics(system_id=None):
     """
     Returns the thermal metrics for the chassis.
 
     Returns:
         dict: Dictionary with temperature readings from the chassis in Redfish format.
     """
-    machine_id = readings.machine_id()
+    machine_id = _resolve_system_id(system_id)
     reading = readings.cpu_temp()
 
     metrics = {
@@ -171,13 +179,14 @@ def get_thermalMetrics():
     }
     return metrics
 
-def get_powerSubsystem():
+def get_powerSubsystem(system_id=None):
     """
     Returns information about the chassis power subsystem.
 
     Returns:
         dict: Dictionary with power subsystem information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     power = {
         "@odata.type": "#PowerSubsystem.v1_1_3.PowerSubsystem",
         "Id": "PowerSubsystem",
@@ -189,6 +198,6 @@ def get_powerSubsystem():
         "Status": {
             "Health": readings.power_health(),
         },
-        "@odata.id": "/redfish/v1/Chassis/"+readings.machine_id()+"/PowerSubsystem"
+        "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem"
     }
     return power

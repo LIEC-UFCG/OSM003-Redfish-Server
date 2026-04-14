@@ -12,6 +12,11 @@ import threading
 # pip install py-cpuinfo
 
 
+def _resolve_system_id(system_id=None):
+    """Return the requested system ID or fall back to the local machine ID."""
+    return system_id or readings.machine_id()
+
+
 def _capacity_to_bytes(value):
     """Converts capacity values (e.g. 40G, 512M, 123456) to integer bytes."""
     if isinstance(value, int):
@@ -41,41 +46,43 @@ def _capacity_to_bytes(value):
     return None
 
 
-def get_computer():
+def get_computer(system_id=None):
     """
     Returns the collection of computer systems.
 
     Returns:
         dict: Dictionary with computer systems collection information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     computer = {
         "@odata.type": "#ComputerSystemCollection.ComputerSystemCollection",
         "Name": "ComputerSystem Collection",
         "Members@odata.count": 1,
         "Members": [
             {
-                "@odata.id": "/redfish/v1/Systems/" + readings.machine_id()
+                "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}"
             }
         ],
         "@odata.id": "/redfish/v1/Systems"
     }
     return computer
 
-def get_computer_system():
+def get_computer_system(system_id=None):
     """
     Returns the details of ComputerSystem in Redfish format.
 
     Returns:
         flask.Response: JSON response with ComputerSystem details.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     computer_id = {
         "@odata.type": "#ComputerSystem.v1_23_1.ComputerSystem",
         "Name": "ComputerSystem Collection",
-        "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}",
-        "Id": readings.machine_id(),
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}",
+        "Id": resolved_system_id,
         "@odata.context": "/redfish/v1/$metadata#ComputerSystem.ComputerSystem",
         "EthernetInterfaces": {
-            "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces",
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces",
         },
         "HostedServices": {
             "Oem": {
@@ -91,17 +98,17 @@ def get_computer_system():
         "Links": {
             "Chassis": [
                 {
-                    "@odata.id": "/redfish/v1/Chassis/" + readings.machine_id()
+                    "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}"
                 }
             ],
             "ManagedBy": [
                 {
-                    "@odata.id": "/redfish/v1/Managers/" + readings.machine_id()
+                    "@odata.id": f"/redfish/v1/Managers/{resolved_system_id}"
                 }
             ]
         },
         "LogServices": {
-            "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/LogServices"
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/LogServices"
         }, 
         "Manufacturer": readings.manufacturer(),  
         #"Memory": {
@@ -112,19 +119,19 @@ def get_computer_system():
         },
         "Model": readings.model(),
         "OperatingSystem": {
-            "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem"
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/OperatingSystem"
         },
         "ProcessorSummary": {
             "Count": 1,  # Raspberry Pi has 1 physical processor
             "Model": readings.cpu_model(),  # Processor model
         },
         "Processors": {
-            "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/Processors"
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors"
         },
         "SKU": readings.get_sku(),
         "SerialNumber": readings.serial(),
         "SimpleStorage": {
-            "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage"
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/SimpleStorage"
         },
         "Status": {
             "Health": readings.cpu_health(),  # Based on health functions (CPU, memory, etc.)
@@ -134,7 +141,7 @@ def get_computer_system():
         "UUID": readings.system_uuid(),
         "Actions": {
             "#ComputerSystem.Reset": {
-                "target": f"/redfish/v1/Systems/{readings.machine_id()}/Actions/ComputerSystem.Reset",
+                "target": f"/redfish/v1/Systems/{resolved_system_id}/Actions/ComputerSystem.Reset",
                 "title": "Reset System",
                 "ResetType@Redfish.AllowableValues": [
                     "On",
@@ -204,13 +211,14 @@ def reset_computer(system_id):
     return response
 
 
-def get_computersystem_id_ethernetInterfaces():
+def get_computersystem_id_ethernetInterfaces(system_id=None):
     """
     Returns the collection of Ethernet interfaces from the system.
 
     Returns:
         dict: Dictionary with Ethernet interfaces information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     eth = {
         "@odata.type": "#EthernetInterfaceCollection.EthernetInterfaceCollection",
         "Name": "Ethernet Interface Collection",
@@ -218,8 +226,8 @@ def get_computersystem_id_ethernetInterfaces():
         "Members@odata.count": readings.eth_count(),
         "Members": readings.eth_members(), # Dictionary
         "Oem": {},
-        "@odata.context": "/redfish/v1/$metadata#Systems/Members/" + readings.machine_id() + "/EthernetInterfaces/$entity",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/EthernetInterfaces",
+        "@odata.context": f"/redfish/v1/$metadata#Systems/Members/{resolved_system_id}/EthernetInterfaces/$entity",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces",
     }
     return eth
 
@@ -238,7 +246,8 @@ def dynamic_eth_funcs():
         def bind_interface_function():
             iface_name = deepcopy(member)
             iface_number = str(deepcopy(interface_counter))
-            def interface_function():
+            def interface_function(system_id=None):
+                resolved_system_id = _resolve_system_id(system_id)
                 stats = readings.eth_stats(iface_name)
 
                 interface = {
@@ -257,8 +266,8 @@ def dynamic_eth_funcs():
                     "NameServers": stats['dns'],
                     "IPv4Addresses": stats['ipv4_addresses'],
                     "IPv6Addresses": stats['ipv6_addresses'],
-                    "@odata.context": "/redfish/v1/$metadata#ComputerSystem/Members/" + readings.machine_id() + "/EthernetInterfaces/Members/$entity",
-                    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/EthernetInterfaces/" + iface_name,
+                    "@odata.context": f"/redfish/v1/$metadata#ComputerSystem/Members/{resolved_system_id}/EthernetInterfaces/Members/$entity",
+                    "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces/{iface_name}",
                 }
                 return interface
             interface_function.__name__ = iface_name
@@ -268,24 +277,25 @@ def dynamic_eth_funcs():
         interface_counter += 1
     return systems_eth_endpoint_functions
 
-def get_systems_id_memory():
+def get_systems_id_memory(system_id=None):
     """
     Returns the collection of memory modules from the system.
 
     Returns:
         dict: Dictionary with memory collection information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     mem = {
         "@odata.type": "#MemoryCollection.MemoryCollection",
         "Name": "Memory Module Collection",
         "Members@odata.count": 1,
         "Members": [
             {
-                "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Memory/1"
+                "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory/1"
             }
         ],
         "@odata.context": "/redfish/v1/$metadata#MemoryCollection.MemoryCollection",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Memory"
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory"
     }
     return mem
 
@@ -384,19 +394,20 @@ def get_memory_type(description):
 
 
 
-def get_systems_id_memory_dimm():
+def get_systems_id_memory_dimm(system_id=None):
     """
     Returns detailed information about the memory module.
 
     Returns:
         dict: Dictionary with memory module information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     memory_info = get_memory_info()  # Captures system memory data
 
     ram = {
         "@odata.type": "#Memory.v1_20_0.Memory",
         "@odata.context": "/redfish/v1/$metadata#Memory.Memory",
-        "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/Memory/1",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory/1",
         "Id": "1",
         "Name": "Slot 1",
         "Description": "Memory Module in Slot 1",
@@ -490,40 +501,42 @@ def get_redfish_instruction_set(arch):
     return mapping.get(arch, "OEM")  # If not found, set as 'OEM'
 
 
-def get_systems_id_processors():
+def get_systems_id_processors(system_id=None):
     """
     Returns the collection of processors from the system.
 
     Returns:
         dict: Dictionary with processors information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     procs = {
         "@odata.type": "#ProcessorCollection.ProcessorCollection",
         "Name": "Processors Collection",
         "Members@odata.count": 1,
         "Members": [
             { 
-                "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors/CPU1"
+                "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors/CPU1"
             }
         ],
         #"@odata.context": "/redfish/v1/$metadata#Systems/Links/Members/" + readings.machine_id() + "/Processors/#entity",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors",
     }
     return procs
 
 
 
-def get_systems_id_processors_cpu1():
+def get_systems_id_processors_cpu1(system_id=None):
     """
     Returns detailed information about the main processor.
 
     Returns:
         dict: Dictionary with processor information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     cpu1 = {
         "@odata.type": "#Processor.v1_20_1.Processor",
         "@odata.context": "/redfish/v1/$metadata#Processor.Processor",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors/CPU1",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors/CPU1",
         "Id": "CPU1",
         "Name": "Processor CPU1",
         "ProcessorType": "CPU",
@@ -546,19 +559,20 @@ def get_systems_id_processors_cpu1():
     return cpu1
 
 
-def get_systems_id_simpleStorage():
+def get_systems_id_simpleStorage(system_id=None):
     """
     Returns the collection of simple storage devices from the system.
 
     Returns:
         dict: Dictionary with storage devices information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     storage = {
         "@odata.type": "#SimpleStorageCollection.SimpleStorageCollection",
         "Name": "Simple Storage Collection",
         "Members@odata.count": readings.storage_count(),
         "Members": readings.storage_members(),
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/SimpleStorage"
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/SimpleStorage"
     }
     return storage
 
@@ -578,7 +592,8 @@ def dynamic_storage_funcs():
 
         def bind_storage_function(str_name=member, str_number=str(idx)):  #  Uses default arguments to capture values in correct scope
 
-            def storage_function():
+            def storage_function(system_id=None):
+                resolved_system_id = _resolve_system_id(system_id)
                 stats = readings.storage_stats(str_name) or {}  #  Ensures stats is always a dictionary
 
                 storage_device = {
@@ -605,7 +620,7 @@ def dynamic_storage_funcs():
                     },
                     "UefiDevicePath": stats.get('uefi_device_path', None),  # If not available, returns None
                     #"@odata.context": f"/redfish/v1/$metadata#ComputerSystem/Members/{readings.machine_id()}/SimpleStorage/Members/$entity",
-                    "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{str_name}"
+                    "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/SimpleStorage/{str_name}"
                 }
                 
                 return storage_device

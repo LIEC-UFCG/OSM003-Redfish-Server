@@ -277,24 +277,25 @@ def dynamic_eth_funcs():
         interface_counter += 1
     return systems_eth_endpoint_functions
 
-def get_systems_id_memory():
+def get_systems_id_memory(system_id=None):
     """
     Returns the collection of memory modules from the system.
 
     Returns:
         dict: Dictionary with memory collection information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     mem = {
         "@odata.type": "#MemoryCollection.MemoryCollection",
         "Name": "Memory Module Collection",
         "Members@odata.count": 1,
         "Members": [
             {
-                "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Memory/1"
+                "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory/1"
             }
         ],
         "@odata.context": "/redfish/v1/$metadata#MemoryCollection.MemoryCollection",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Memory"
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory"
     }
     return mem
 
@@ -393,19 +394,20 @@ def get_memory_type(description):
 
 
 
-def get_systems_id_memory_dimm():
+def get_systems_id_memory_dimm(system_id=None):
     """
     Returns detailed information about the memory module.
 
     Returns:
         dict: Dictionary with memory module information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     memory_info = get_memory_info()  # Captures system memory data
 
     ram = {
         "@odata.type": "#Memory.v1_20_0.Memory",
         "@odata.context": "/redfish/v1/$metadata#Memory.Memory",
-        "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/Memory/1",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Memory/1",
         "Id": "1",
         "Name": "Slot 1",
         "Description": "Memory Module in Slot 1",
@@ -499,40 +501,42 @@ def get_redfish_instruction_set(arch):
     return mapping.get(arch, "OEM")  # If not found, set as 'OEM'
 
 
-def get_systems_id_processors():
+def get_systems_id_processors(system_id=None):
     """
     Returns the collection of processors from the system.
 
     Returns:
         dict: Dictionary with processors information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     procs = {
         "@odata.type": "#ProcessorCollection.ProcessorCollection",
         "Name": "Processors Collection",
         "Members@odata.count": 1,
         "Members": [
             { 
-                "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors/CPU1"
+                "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors/CPU1"
             }
         ],
         #"@odata.context": "/redfish/v1/$metadata#Systems/Links/Members/" + readings.machine_id() + "/Processors/#entity",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors",
     }
     return procs
 
 
 
-def get_systems_id_processors_cpu1():
+def get_systems_id_processors_cpu1(system_id=None):
     """
     Returns detailed information about the main processor.
 
     Returns:
         dict: Dictionary with processor information in Redfish format.
     """
+    resolved_system_id = _resolve_system_id(system_id)
     cpu1 = {
         "@odata.type": "#Processor.v1_20_1.Processor",
         "@odata.context": "/redfish/v1/$metadata#Processor.Processor",
-        "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/Processors/CPU1",
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors/CPU1",
         "Id": "CPU1",
         "Name": "Processor CPU1",
         "ProcessorType": "CPU",

@@ -595,7 +595,7 @@ def get_systems_id_processors(system_id):
     Returns:
         Information about the computer system processors.
     """
-    return computersystem.get_systems_id_processors()
+    return computersystem.get_systems_id_processors(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/Processors/CPU1 endpoint
 # Returns detailed information about the CPU1 processor of the computer system
@@ -609,7 +609,7 @@ def get_systems_id_processors_cpu1(system_id):
     Returns:
         Detailed information about the CPU1 processor of the computer system.
     """
-    return computersystem.get_systems_id_processors_cpu1()
+    return computersystem.get_systems_id_processors_cpu1(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/SimpleStorage
 # Returns information about simple storage devices of the system

@@ -46,3 +46,6 @@ source/
 
 # Internal management reports (private, non-public)
 internal_reports/
+internal_reports/exported/
+internal_reports/exported/*.docx
+internal_reports/exported/*.summary.txt

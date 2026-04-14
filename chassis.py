@@ -39,6 +39,7 @@ def get_chassis_id(system_id=None):
         "Id": resolved_system_id,
         "Name": "Computer System Chassis",
         "AssetTag": readings.get_asset_tag(),
+        "LocationIndicatorActive": readings.power_led() == "On",
         "ChassisType": readings.get_chassis_type(),
         "Links": {
             "ComputerSystems": [
@@ -55,6 +56,9 @@ def get_chassis_id(system_id=None):
         },
         "ThermalSubsystem": {
             "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/ThermalSubsystem"
+        },
+        "PowerSubsystem": {
+            "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem"
         },
         "Manufacturer": readings.manufacturer(),
         "Model": readings.model(),

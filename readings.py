@@ -233,8 +233,30 @@ def manufacturer():
             return "Unknown"
 
     elif env == 'dcn':
+        # Prefer sysfs sources because they are fast and do not require elevation.
+        for path in (
+            "/sys/devices/virtual/dmi/id/board_vendor",
+            "/sys/devices/virtual/dmi/id/sys_vendor",
+        ):
+            try:
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        value = f.read().strip()
+                        if value:
+                            return value
+            except Exception:
+                continue
+
+        # Fallback to dmidecode without sudo and with timeout to avoid HTTP hangs.
         try:
-            output = check_output(['sudo', 'dmidecode', '-s', 'baseboard-manufacturer']).decode("utf-8").strip()
+            result = subprocess.run(
+                ['dmidecode', '-s', 'baseboard-manufacturer'],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+            output = (result.stdout or "").strip()
             return output if output else "Unknown"
         except Exception as e:
             print(f"Error getting manufacturer on DCN: {e}")

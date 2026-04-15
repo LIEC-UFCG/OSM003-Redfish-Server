@@ -81,6 +81,7 @@ def get_computer_system(system_id=None):
         "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}",
         "Id": resolved_system_id,
         "@odata.context": "/redfish/v1/$metadata#ComputerSystem.ComputerSystem",
+        "LocationIndicatorActive": readings.power_led() == "On",
         "EthernetInterfaces": {
             "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces",
         },
@@ -101,6 +102,8 @@ def get_computer_system(system_id=None):
                     "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}"
                 }
             ],
+            "TrustedComponents": [],
+            "TrustedComponents@odata.count": 0,
             "ManagedBy": [
                 {
                     "@odata.id": f"/redfish/v1/Managers/{resolved_system_id}"
@@ -132,6 +135,9 @@ def get_computer_system(system_id=None):
         "SerialNumber": readings.serial(),
         "SimpleStorage": {
             "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/SimpleStorage"
+        },
+        "Storage": {
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Storage"
         },
         "Status": {
             "Health": readings.cpu_health(),  # Based on health functions (CPU, memory, etc.)
@@ -573,6 +579,30 @@ def get_systems_id_simpleStorage(system_id=None):
         "Members@odata.count": readings.storage_count(),
         "Members": readings.storage_members(),
         "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/SimpleStorage"
+    }
+    return storage
+
+def get_systems_id_storage(system_id=None):
+    """
+    Returns the collection of storage devices from the system.
+
+    Returns:
+        dict: Dictionary with storage collection information in Redfish format.
+    """
+    resolved_system_id = _resolve_system_id(system_id)
+    member_refs = []
+
+    for device_name in readings.storage_names():
+        member_refs.append({
+            "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Storage/{device_name}"
+        })
+
+    storage = {
+        "@odata.type": "#StorageCollection.StorageCollection",
+        "Name": "Storage Collection",
+        "Members@odata.count": len(member_refs),
+        "Members": member_refs,
+        "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Storage"
     }
     return storage
 

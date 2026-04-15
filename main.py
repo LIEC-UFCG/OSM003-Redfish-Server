@@ -653,7 +653,7 @@ if os.environ.get("SPHINX_BUILD") != "1":
                             requires_authentication(func)
                         )
         decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
-        app.route(route, methods=['GET'])(decorated_func)
+        app.route(route, methods=['GET'], endpoint=f"simple_storage_{func.__name__}")(decorated_func)
 
     for func in storage_functions:
         route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_', '')}"
@@ -661,7 +661,7 @@ if os.environ.get("SPHINX_BUILD") != "1":
                             requires_authentication(func)
                         )
         decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
-        app.route(route, methods=['GET'])(decorated_func)
+        app.route(route, methods=['GET'], endpoint=f"storage_{func.__name__}")(decorated_func)
 
 # Route to retrieve operating system information
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem', methods=['GET'], strict_slashes=False) 

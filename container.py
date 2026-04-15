@@ -2,7 +2,27 @@ import docker
 from flask import jsonify, request, make_response
 from datetime import datetime
 
-client = docker.from_env()  # Connects to Docker daemon
+client = None
+
+
+def _get_client():
+    """Return a Docker client when the daemon is available."""
+    global client
+
+    if client is not None:
+        return client
+
+    try:
+        client = docker.from_env()
+    except Exception:
+        client = None
+
+    return client
+
+
+def _docker_unavailable_response():
+    """Return a standard response when Docker is not reachable."""
+    return make_response({"error": "Docker daemon unavailable"}, 503)
 
 def get_containers(system_id):
     """
@@ -14,7 +34,11 @@ def get_containers(system_id):
     Returns:
         flask.Response: JSON response with the collection of containers in Redfish format.
     """
-    containers = client.containers.list(all=True)  # Gets all containers, including stopped ones
+    docker_client = _get_client()
+    if docker_client is None:
+        return _docker_unavailable_response()
+
+    containers = docker_client.containers.list(all=True)  # Gets all containers, including stopped ones
 
     container_list = []
     for container in containers:
@@ -49,7 +73,11 @@ def get_container(system_id, container_id):
         tuple: (response, status_code) in case of error.
     """
     try:
-        container = client.containers.get(container_id)
+        docker_client = _get_client()
+        if docker_client is None:
+            return _docker_unavailable_response()
+
+        container = docker_client.containers.get(container_id)
 
         # Processes container volumes (even if they don't exist)
         mounts = container.attrs.get('Mounts', [])
@@ -150,7 +178,11 @@ def start_container(container_id):
         flask.Response: Success or error message.
     """
     try:
-        container = client.containers.get(container_id)
+        docker_client = _get_client()
+        if docker_client is None:
+            return _docker_unavailable_response()
+
+        container = docker_client.containers.get(container_id)
         container.start()
         return make_response({"message": "Container started successfully"}, 200)
     except docker.errors.NotFound:
@@ -167,7 +199,11 @@ def stop_container(container_id):
         flask.Response: Success or error message.
     """
     try:
-        container = client.containers.get(container_id)
+        docker_client = _get_client()
+        if docker_client is None:
+            return _docker_unavailable_response()
+
+        container = docker_client.containers.get(container_id)
         container.stop()
         return make_response({"message": "Container stopped successfully"}, 200)
     except docker.errors.NotFound:
@@ -184,7 +220,11 @@ def reset_container(container_id):
         flask.Response: Success or error message.
     """
     try:
-        container = client.containers.get(container_id)
+        docker_client = _get_client()
+        if docker_client is None:
+            return _docker_unavailable_response()
+
+        container = docker_client.containers.get(container_id)
         container.restart()
         return make_response({"message": "Container reset successfully"}, 200)
     except docker.errors.NotFound:

@@ -1166,10 +1166,7 @@ def storage_count():
     Returns:
         int: Number of detected storage devices.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
-    return len(disks)
+    return len(storage_names())
 
 def storage_members():
     """
@@ -1178,12 +1175,8 @@ def storage_members():
     Returns:
         list: List of dictionaries with '@odata.id' field for each device.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
     disk_members = []
-    for disk in disks:
-        disk_name = disk.split()[0]
+    for disk_name in storage_names():
         disk_members.append({
             "@odata.id": "/redfish/v1/Systems/" + machine_id() + "/SimpleStorage/" + disk_name
         })
@@ -1196,13 +1189,16 @@ def storage_names():
     Returns:
         list: List with the names of storage devices.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
     disk_names = []
-    for disk in disks:
-        disk_name = disk.split()[0]
-        disk_names.append(disk_name)
+    try:
+        lsblk_output = check_output(["lsblk", "-dn", "-o", "NAME,TYPE"], stderr=DEVNULL).decode("utf-8")
+    except (FileNotFoundError, CalledProcessError, OSError):
+        return disk_names
+
+    for line in lsblk_output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == "disk":
+            disk_names.append(parts[0])
     return disk_names
 
 def storage_stats(device):

@@ -187,11 +187,26 @@ def power_led():
     Returns:
         str: "On" if LED is on, "Off" otherwise.
     """
-    led_brightness = int(check_output(["cat", "/sys/class/leds/PWR/brightness"]).decode("utf-8"))
-    if(led_brightness > 0):
-        return "On"
-    else:
-        return "Off"
+    try:
+        path = "/sys/class/leds/PWR/brightness"
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                led_brightness = int(f.read().strip())
+                return "On" if led_brightness > 0 else "Off"
+
+        # Some systems expose the power LED under a different name.
+        for fallback_path in (
+            "/sys/class/leds/ACT/brightness",
+            "/sys/class/leds/led1/brightness",
+        ):
+            if os.path.exists(fallback_path):
+                with open(fallback_path, "r", encoding="utf-8") as f:
+                    led_brightness = int(f.read().strip())
+                    return "On" if led_brightness > 0 else "Off"
+    except Exception as e:
+        print(f"Error reading power LED state: {e}")
+
+    return "Off"
 
 
 

@@ -625,6 +625,20 @@ def get_systems_id_simpleStorage(system_id):
     """
     return computersystem.get_systems_id_simpleStorage(system_id)
 
+# Route for /redfish/v1/Systems/<system_id>/Storage
+# Returns information about storage devices of the system
+@app.route('/redfish/v1/Systems/<system_id>/Storage', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("SimpleStorageCollection")
+def get_systems_id_storage(system_id):
+    """Route for endpoint /redfish/v1/Systems/<system_id>/Storage, allows GET method.
+
+    Returns:
+        Information about storage devices of the system.
+    """
+    return computersystem.get_systems_id_storage(system_id)
+
 
 if os.environ.get("SPHINX_BUILD") != "1":
     storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
@@ -635,6 +649,14 @@ if os.environ.get("SPHINX_BUILD") != "1":
         # The HTTP method is set to GET
         route = f"/redfish/v1/Systems/<system_id>/SimpleStorage/{func.__name__.replace('storage_', '')}"
         # Manually chain decorators
+        protected_func = requires_privilege("SimpleStorage")(
+                            requires_authentication(func)
+                        )
+        decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
+        app.route(route, methods=['GET'])(decorated_func)
+
+    for func in storage_functions:
+        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_', '')}"
         protected_func = requires_privilege("SimpleStorage")(
                             requires_authentication(func)
                         )

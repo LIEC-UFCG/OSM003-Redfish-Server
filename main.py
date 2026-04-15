@@ -442,7 +442,7 @@ def get_chassis_id_thermalSubsystem(system_id):
     Returns:
         flask.Response: JSON with thermal subsystem information.
     """
-    return chassis.get_thermalSubsystem()
+    return chassis.get_thermalSubsystem(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics endpoint, allows GET and PATCH methods
 @app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem/ThermalMetrics', methods=['GET'], strict_slashes=False)
@@ -457,7 +457,7 @@ def get_chassis_id_thermalMetrics(system_id):
     Returns:
         flask.Response: JSON with chassis thermal metrics.
     """
-    return chassis.get_thermalMetrics()
+    return chassis.get_thermalMetrics(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/PowerSubsystem endpoint, returns power information
 @app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem', methods=['GET'], strict_slashes=False)
@@ -472,7 +472,7 @@ def get_chassis_id_powerSubsystem(system_id):
     Returns:
         flask.Response: JSON with power subsystem information.
     """
-    return chassis.get_powerSubsystem()
+    return chassis.get_powerSubsystem(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/Sensors endpoint, returns sensor information
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors', methods=['GET'], strict_slashes=False)
@@ -487,7 +487,7 @@ def get_chassis_id_sensors(system_id):
     Returns:
         flask.Response: JSON with readings from chassis sensors.
     """
-    return chassis.get_sensors()
+    return chassis.get_sensors(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id> endpoint, returns one sensor
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors/<sensor_id>', methods=['GET'], strict_slashes=False)
@@ -502,7 +502,7 @@ def get_chassis_id_sensor(system_id, sensor_id):
     Returns:
         flask.Response: JSON with sensor data.
     """
-    return chassis.get_sensor(sensor_id)
+    return chassis.get_sensor(sensor_id, system_id)
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Route for /redfish/v1/JsonSchemas/ endpoint

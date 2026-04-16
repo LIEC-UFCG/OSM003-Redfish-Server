@@ -20,9 +20,15 @@ require_command() {
     fi
 }
 
-log "Updating system packages"
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
+log "Checking system packages"
+# Only update if Python3 is missing; avoid slow apt update when not needed
+if ! command -v python3 >/dev/null 2>&1; then
+    log "Updating system packages (first run)"
+    sudo apt update
+    sudo apt install -y python3 python3-venv python3-pip
+else
+    log "Python3 already installed, skipping apt update"
+fi
 
 require_command "$PYTHON_BIN"
 
@@ -83,7 +89,23 @@ log "Installing Python dependencies"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+
+# Support custom PyPI mirror via env: PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple ./setup_source.sh
+# Or use pip cache directory to speed up subsequent installs
+PIP_CACHE_DIR="${PIP_CACHE_DIR:-$HOME/.cache/pip}"
+mkdir -p "$PIP_CACHE_DIR"
+
+PIP_ARGS=(
+    "--cache-dir=$PIP_CACHE_DIR"
+    "--upgrade"
+)
+
+if [ -n "${PIP_INDEX_URL:-}" ]; then
+    log "Using custom PyPI mirror: $PIP_INDEX_URL"
+    PIP_ARGS+=("--index-url=$PIP_INDEX_URL")
+fi
+
+python -m pip install "${PIP_ARGS[@]}" -r requirements.txt
 
 if [ "$RUN_SERVER" = "1" ]; then
     log "Starting the server"
@@ -100,3 +122,12 @@ echo "Tips:"
 echo "  Edit server_config.json to define setup/runtime defaults"
 echo "  ENABLE_DOCKER_GROUP=1 ./setup_source.sh"
 echo "  RUN_SERVER=1 ./setup_source.sh"
+echo
+echo "Performance tips:"
+echo "  Use custom PyPI mirror for faster downloads:"
+echo "  PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple ./setup_source.sh"
+echo "  Or other mirrors like:"
+echo "    - https://mirror.baidu.com/pypi/simple (Baidu CN)"
+echo "    - https://pypi.tsinghua.edu.cn/simple (Tsinghua CN)"
+echo "    - https://mirrors.ustc.edu.cn/pypi/web/simple (USTC CN)"
+echo "  Pip cache location: $PIP_CACHE_DIR"

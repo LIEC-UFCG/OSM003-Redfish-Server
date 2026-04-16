@@ -674,6 +674,7 @@ def get_systems_id_storage(system_id):
 
 if os.environ.get("SPHINX_BUILD") != "1":
     storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
+    storage_resource_functions = computersystem.dynamic_storage_resource_funcs()
 
     for func in storage_functions: # Iterate over storage functions
         # Register each function as a Flask route
@@ -687,8 +688,8 @@ if os.environ.get("SPHINX_BUILD") != "1":
         decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
         app.route(route, methods=['GET'], endpoint=f"simple_storage_{func.__name__}")(decorated_func)
 
-    for func in storage_functions:
-        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_', '')}"
+    for func in storage_resource_functions:
+        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_resource_', '')}"
         protected_func = requires_privilege("SimpleStorage")(
                             requires_authentication(func)
                         )

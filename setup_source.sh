@@ -55,13 +55,13 @@ def to_shell_bool(name, default):
     return "1" if value else "0"
 
 print(f"CFG_ENABLE_DOCKER_GROUP={to_shell_bool('ENABLE_DOCKER_GROUP', False)}")
-print(f"CFG_RUN_SERVER={to_shell_bool('RUN_SERVER_AFTER_SETUP', False)}")
+print(f"CFG_RUN_SERVER={to_shell_bool('RUN_SERVER_AFTER_SETUP', True)}")
 PY
 )"
 fi
 
 ENABLE_DOCKER_GROUP="${ENABLE_DOCKER_GROUP:-${CFG_ENABLE_DOCKER_GROUP:-0}}"
-RUN_SERVER="${RUN_SERVER:-${CFG_RUN_SERVER:-0}}"
+RUN_SERVER="${RUN_SERVER:-${CFG_RUN_SERVER:-1}}"
 
 if [ ! -f "requirements.txt" ] || [ ! -f "main.py" ]; then
     echo "[ERROR] Execute this script from the repository root directory." >&2
@@ -121,7 +121,7 @@ echo
 echo "Tips:"
 echo "  Edit server_config.json to define setup/runtime defaults"
 echo "  ENABLE_DOCKER_GROUP=1 ./setup_source.sh"
-echo "  RUN_SERVER=1 ./setup_source.sh"
+echo "  RUN_SERVER=0 ./setup_source.sh   # disable auto-start"
 echo
 echo "Performance tips:"
 echo "  Use custom PyPI mirror for faster downloads:"

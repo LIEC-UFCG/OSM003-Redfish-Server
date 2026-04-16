@@ -3,10 +3,12 @@ from datetime import datetime
 import psutil
 import json
 import os
+import glob
 import socket
 import platform
 import re
 import subprocess
+import config as app_config
 
 def get_environment():
     """
@@ -318,6 +320,81 @@ def power_health():
         except Exception as e:
             print(f"Error calculating system health: {e}")
             return "Unknown"
+
+
+def _safe_float(value):
+    """Convert value to float when possible, else return None."""
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_number_from_file(path):
+    """Read a numeric value from sysfs-style files."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return _safe_float(f.read().strip())
+    except Exception:
+        return None
+
+
+def _to_watts(raw_value):
+    """Normalize sysfs power values (uW/mW/W) into watts."""
+    if raw_value is None:
+        return None
+
+    value = float(raw_value)
+
+    if value >= 100000:
+        # Common Linux power_supply unit: microwatts.
+        return value / 1_000_000.0
+    if value >= 1000:
+        # Some platforms expose milliwatts.
+        return value / 1000.0
+    return value
+
+
+def _is_supply_online(supply_dir):
+    """Return True when power supply reports online, or if unknown."""
+    online_value = _read_number_from_file(os.path.join(supply_dir, "online"))
+    return online_value is None or int(online_value) == 1
+
+
+def _get_supply_power_watts(candidates):
+    """Try to read power from /sys/class/power_supply using candidate field names."""
+    for supply_dir in glob.glob("/sys/class/power_supply/*"):
+        if not _is_supply_online(supply_dir):
+            continue
+
+        for field in candidates:
+            raw = _read_number_from_file(os.path.join(supply_dir, field))
+            watts = _to_watts(raw)
+            if watts is not None and watts > 0:
+                return round(watts, 2)
+    return None
+
+
+def power_capacity_watts():
+    """Return chassis power capacity in watts from device data or configuration."""
+    measured = _get_supply_power_watts(["power_max", "power_max_design", "power_now"])
+    if measured is not None:
+        return measured
+
+    configured = _safe_float(getattr(app_config, "POWER_CAPACITY_WATTS", None))
+    return round(configured, 2) if configured is not None else 0.0
+
+
+def power_allocated_watts():
+    """Return allocated power in watts from device data or configuration."""
+    measured = _get_supply_power_watts(["power_now", "power_avg"])
+    if measured is not None:
+        return measured
+
+    configured = _safe_float(getattr(app_config, "POWER_ALLOCATED_WATTS", None))
+    return round(configured, 2) if configured is not None else 0.0
 
 
 

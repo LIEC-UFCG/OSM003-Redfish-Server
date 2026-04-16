@@ -191,17 +191,67 @@ def get_powerSubsystem(system_id=None):
         dict: Dictionary with power subsystem information in Redfish format.
     """
     resolved_system_id = _resolve_system_id(system_id)
+    capacity_watts = max(0.0, float(readings.power_capacity_watts()))
+    allocated_watts_raw = max(0.0, float(readings.power_allocated_watts()))
+    allocated_watts = min(allocated_watts_raw, capacity_watts)
+
     power = {
         "@odata.type": "#PowerSubsystem.v1_1_3.PowerSubsystem",
         "Id": "PowerSubsystem",
         "Name": "Power Subsystem for Chassis",
-        "Core Voltage": readings.cpu_voltage(),
-        "SDRAM_I Voltage": readings.memory_voltage(),
-        "SDRAM_C Voltage": readings.memory_voltage_c(),
-        "SDRAM_P Voltage": readings.memory_voltage_p(),
+        "Allocation": {
+            "AllocatedWatts": allocated_watts
+        },
+        "CapacityWatts": capacity_watts,
+        "PowerSupplies": {
+            "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem/PowerSupplies"
+        },
+        "PowerSupplyRedundancy": [],
         "Status": {
             "Health": readings.power_health(),
+            "State": "Enabled"
         },
         "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem"
     }
     return power
+
+
+def get_power_supplies(system_id=None):
+    """Return the collection of power supplies for the chassis power subsystem."""
+    resolved_system_id = _resolve_system_id(system_id)
+    collection = {
+        "@odata.type": "#PowerSupplyCollection.PowerSupplyCollection",
+        "Name": "Power Supply Collection",
+        "Members@odata.count": 1,
+        "Members": [
+            {
+                "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem/PowerSupplies/PSU1"
+            }
+        ],
+        "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem/PowerSupplies"
+    }
+    return collection
+
+
+def get_power_supply(system_id=None, psu_id="PSU1"):
+    """Return a single power supply resource."""
+    resolved_system_id = _resolve_system_id(system_id)
+
+    if psu_id != "PSU1":
+        return {"error": "Power supply not found"}, 404
+
+    power_supply = {
+        "@odata.type": "#PowerSupply.v1_5_1.PowerSupply",
+        "Id": "PSU1",
+        "Name": "Power Supply 1",
+        "Manufacturer": readings.manufacturer(),
+        "Model": readings.model(),
+        "PowerCapacityWatts": readings.power_capacity_watts(),
+        "InputNominalVoltageType": "ACHighLine",
+        "Status": {
+            "Health": readings.power_health(),
+            "State": "Enabled"
+        },
+        "@odata.id": f"/redfish/v1/Chassis/{resolved_system_id}/PowerSubsystem/PowerSupplies/PSU1"
+    }
+    return power_supply

@@ -30,6 +30,8 @@ DEFAULT_CONFIG = {
 	"ALLOW_MULTIPLE_SESSIONS": True,
 	"ENABLE_DOCKER_GROUP": False,
 	"RUN_SERVER_AFTER_SETUP": False,
+	"POWER_CAPACITY_WATTS": 250,
+	"POWER_ALLOCATED_WATTS": 0,
 }
 
 
@@ -82,3 +84,7 @@ ALLOW_MULTIPLE_SESSIONS = _to_bool(_get("ALLOW_MULTIPLE_SESSIONS"), True)
 # Setup helpers (used by setup_source.sh)
 ENABLE_DOCKER_GROUP = _to_bool(_get("ENABLE_DOCKER_GROUP"), False)
 RUN_SERVER_AFTER_SETUP = _to_bool(_get("RUN_SERVER_AFTER_SETUP"), False)
+
+# Power defaults used when hardware readings are unavailable
+POWER_CAPACITY_WATTS = float(_get("POWER_CAPACITY_WATTS"))
+POWER_ALLOCATED_WATTS = float(_get("POWER_ALLOCATED_WATTS"))

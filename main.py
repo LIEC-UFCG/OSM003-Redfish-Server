@@ -474,6 +474,38 @@ def get_chassis_id_powerSubsystem(system_id):
     """
     return chassis.get_powerSubsystem(system_id)
 
+
+# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies endpoint
+@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("PowerSubsystem")
+def get_chassis_id_powerSupplies(system_id):
+    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies.
+
+    Returns power supply collection information for the chassis.
+
+    Returns:
+        flask.Response: JSON with power supply collection information.
+    """
+    return chassis.get_power_supplies(system_id)
+
+
+# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id> endpoint
+@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("PowerSubsystem")
+def get_chassis_id_powerSupply(system_id, psu_id):
+    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>.
+
+    Returns one power supply resource for the chassis.
+
+    Returns:
+        flask.Response: JSON with power supply data.
+    """
+    return chassis.get_power_supply(system_id, psu_id)
+
 # Route for /redfish/v1/Chassis/<machine_id>/Sensors endpoint, returns sensor information
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
@@ -642,6 +674,7 @@ def get_systems_id_storage(system_id):
 
 if os.environ.get("SPHINX_BUILD") != "1":
     storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
+    storage_resource_functions = computersystem.dynamic_storage_resource_funcs()
 
     for func in storage_functions: # Iterate over storage functions
         # Register each function as a Flask route
@@ -655,8 +688,8 @@ if os.environ.get("SPHINX_BUILD") != "1":
         decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
         app.route(route, methods=['GET'], endpoint=f"simple_storage_{func.__name__}")(decorated_func)
 
-    for func in storage_functions:
-        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_', '')}"
+    for func in storage_resource_functions:
+        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_resource_', '')}"
         protected_func = requires_privilege("SimpleStorage")(
                             requires_authentication(func)
                         )

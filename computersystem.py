@@ -661,3 +661,46 @@ def dynamic_storage_funcs():
         systems_storage_endpoint_functions.append(bind_storage_function())
 
     return systems_storage_endpoint_functions
+
+
+def dynamic_storage_resource_funcs():
+    """
+    Dynamically generates endpoint functions for Storage resources.
+
+    Returns:
+        list: List of functions, each returning a Storage resource dictionary.
+    """
+    systems_storage_resource_functions = []
+
+    storage_names = readings.storage_names()
+
+    for member in storage_names:
+
+        def bind_storage_resource_function(str_name=member):
+
+            def storage_resource_function(system_id=None):
+                resolved_system_id = _resolve_system_id(system_id)
+                stats = readings.storage_stats(str_name) or {}
+
+                storage_resource = {
+                    "@odata.type": "#Storage.v1_5_0.Storage",
+                    "Id": str_name,
+                    "Name": stats.get('name', f"Storage {str_name}"),
+                    "Description": "Storage subsystem",
+                    "Drives": [],
+                    "StorageControllers": [],
+                    "Status": {
+                        "Health": stats.get('storage_health', "OK"),
+                        "State": stats.get('storage_state', "Enabled"),
+                    },
+                    "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Storage/{str_name}"
+                }
+
+                return storage_resource
+
+            storage_resource_function.__name__ = f"storage_resource_{str_name}"
+            return storage_resource_function
+
+        systems_storage_resource_functions.append(bind_storage_resource_function())
+
+    return systems_storage_resource_functions

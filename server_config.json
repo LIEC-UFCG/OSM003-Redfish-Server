@@ -8,6 +8,8 @@
     "ENABLE_RATE_LIMIT": true,
     "RATE_LIMIT": "1 per second",
     "ALLOW_MULTIPLE_SESSIONS": true,
-    "ENABLE_DOCKER_GROUP": false,
-    "RUN_SERVER_AFTER_SETUP": false
+    "ENABLE_DOCKER_GROUP": true,
+    "RUN_SERVER_AFTER_SETUP": true,
+    "POWER_CAPACITY_WATTS": 250,
+    "POWER_ALLOCATED_WATTS": 0
 }

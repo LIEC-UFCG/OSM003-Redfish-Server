@@ -377,6 +377,95 @@ def _get_supply_power_watts(candidates):
     return None
 
 
+_INPUT_NOMINAL_VOLTAGE_TYPES = {
+    "AC100To127V", "AC100To240V", "AC100To277V", "AC120V", "AC200To240V",
+    "AC200To277V", "AC208V", "AC230V", "AC240V", "AC240AndDC380V",
+    "AC277V", "AC277AndDC380V", "AC400V", "AC480V", "DC48V", "DC240V",
+    "DC380V", "DC400V", "DC800V", "DCNeg48V", "DC16V", "DC12V", "DC9V",
+    "DC5V", "DC3_3V", "DC1_8V"
+}
+
+
+def _read_text_from_file(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+
+def _voltage_to_nominal_type(voltage_volts, supply_type):
+    if voltage_volts is None:
+        return None
+
+    stype = (supply_type or "").lower()
+
+    # For mains/AC adapters, map common nominal ranges.
+    if "mains" in stype or "ac" in stype:
+        if 95 <= voltage_volts <= 130:
+            return "AC120V"
+        if 190 <= voltage_volts <= 215:
+            return "AC208V"
+        if 216 <= voltage_volts <= 235:
+            return "AC230V"
+        if 236 <= voltage_volts <= 250:
+            return "AC240V"
+        if 190 <= voltage_volts <= 250:
+            return "AC200To240V"
+        if 100 <= voltage_volts <= 240:
+            return "AC100To240V"
+        return None
+
+    # For battery/DC rails, map low-voltage and telecom ranges.
+    if 1.6 <= voltage_volts <= 2.0:
+        return "DC1_8V"
+    if 3.0 <= voltage_volts <= 3.6:
+        return "DC3_3V"
+    if 4.5 <= voltage_volts <= 5.5:
+        return "DC5V"
+    if 8.0 <= voltage_volts <= 10.0:
+        return "DC9V"
+    if 11.0 <= voltage_volts <= 13.0:
+        return "DC12V"
+    if 15.0 <= voltage_volts <= 17.0:
+        return "DC16V"
+    if 44.0 <= voltage_volts <= 52.0:
+        return "DC48V"
+
+    return None
+
+
+def input_nominal_voltage_type():
+    """Return a valid Redfish InputNominalVoltageType from device or config fallback."""
+    for supply_dir in glob.glob("/sys/class/power_supply/*"):
+        if not _is_supply_online(supply_dir):
+            continue
+
+        supply_type = _read_text_from_file(os.path.join(supply_dir, "type"))
+
+        raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_now"))
+        if raw_uv is None:
+            raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_max"))
+        if raw_uv is None:
+            raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_min"))
+
+        if raw_uv is not None:
+            voltage_volts = float(raw_uv)
+            if voltage_volts >= 1000:
+                # sysfs voltage is usually in microvolts.
+                voltage_volts = voltage_volts / 1_000_000.0
+
+            inferred = _voltage_to_nominal_type(voltage_volts, supply_type)
+            if inferred in _INPUT_NOMINAL_VOLTAGE_TYPES:
+                return inferred
+
+    configured = str(getattr(app_config, "POWER_INPUT_NOMINAL_VOLTAGE_TYPE", "")).strip()
+    if configured in _INPUT_NOMINAL_VOLTAGE_TYPES:
+        return configured
+
+    return "AC200To240V"
+
+
 def power_capacity_watts():
     """Return chassis power capacity in watts from device data or configuration."""
     measured = _get_supply_power_watts(["power_max", "power_max_design", "power_now"])

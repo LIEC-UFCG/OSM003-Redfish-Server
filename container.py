@@ -24,6 +24,87 @@ def _docker_unavailable_response():
     """Return a standard response when Docker is not reachable."""
     return make_response({"error": "Docker daemon unavailable"}, 503)
 
+
+def _to_bytes(size_value):
+    """Convert size values like '10G' or '512M' into bytes."""
+    if isinstance(size_value, (int, float)):
+        return int(size_value)
+
+    if not isinstance(size_value, str):
+        return 0
+
+    text = size_value.strip().upper()
+    if text.isdigit():
+        return int(text)
+
+    units = {
+        "K": 1024,
+        "M": 1024 ** 2,
+        "G": 1024 ** 3,
+        "T": 1024 ** 4,
+    }
+
+    suffix = text[-1:]
+    if suffix in units:
+        try:
+            return int(float(text[:-1]) * units[suffix])
+        except ValueError:
+            return 0
+
+    return 0
+
+
+def _storage_limit_bytes(container):
+    """Return container storage limit in bytes when available."""
+    host_cfg = container.attrs.get("HostConfig", {})
+    storage_opt = host_cfg.get("StorageOpt", {})
+
+    if isinstance(storage_opt, dict):
+        size_opt = storage_opt.get("size")
+        limit = _to_bytes(size_opt)
+        if limit > 0:
+            return limit
+
+    # Fallback to Docker-reported writable layer size when no explicit limit exists.
+    size_rw = container.attrs.get("SizeRw")
+    if isinstance(size_rw, (int, float)) and size_rw >= 0:
+        return int(size_rw)
+
+    return 0
+
+
+def _interface_type_from_driver(driver_or_mode):
+    """Map Docker network driver/mode to a reasonable interface type."""
+    if not driver_or_mode:
+        return "virtual"
+
+    value = str(driver_or_mode).strip().lower()
+    mapping = {
+        "bridge": "veth",
+        "host": "host",
+        "overlay": "vxlan",
+        "macvlan": "macvlan",
+        "ipvlan": "ipvlan",
+        "none": "none",
+        "default": "veth",
+    }
+    return mapping.get(value, value)
+
+
+def _resolve_interface_type(docker_client, container, interface_info):
+    """Resolve interface type from network driver, then network mode."""
+    network_id = interface_info.get("NetworkID")
+    if network_id:
+        try:
+            network = docker_client.networks.get(network_id)
+            driver = network.attrs.get("Driver")
+            return _interface_type_from_driver(driver)
+        except Exception:
+            pass
+
+    network_mode = container.attrs.get("HostConfig", {}).get("NetworkMode")
+    return _interface_type_from_driver(network_mode)
+
 def get_containers(system_id):
     """
     Returns the collection of Docker containers from the system.
@@ -105,6 +186,8 @@ def get_container(system_id, container_id):
             ]
 
         # Fills the final JSON structure
+        dns_servers = container.attrs.get('HostConfig', {}).get('Dns', [])
+
         container_info = {
             "@odata.id": f"/redfish/v1/Systems/{system_id}/OperatingSystem/Containers/{container.id}",
             "@odata.type": "#Container.v1_0_1.Container",
@@ -120,6 +203,7 @@ def get_container(system_id, container_id):
             "CpuCores": container.attrs['HostConfig'].get('CpuCount', 'Unknown'),
             "CreateTime": container.attrs['Created'],
             "MemoryBytes": container.stats(stream=False).get('memory_stats', {}).get('usage', 0),
+            "StorageLimitBytes": _storage_limit_bytes(container),
             "Images": [
                 {
                     "ImageHash": container.attrs['Config'].get('Image', 'Unknown'),
@@ -132,9 +216,11 @@ def get_container(system_id, container_id):
             "NetworkInterfaces": [
                 {
                     "InterfaceName": interface_name,
-                    "Network": interface_info.get('NetworkID', 'Unknown'),
-                    "Subnet": interface_info.get('IPAddress', 'Unknown'),
-                    "IPAddresses": [interface_info.get('IPAddress', 'Unknown')]
+                    "InterfaceType": _resolve_interface_type(docker_client, container, interface_info),
+                    "Network": interface_info.get('NetworkID') or interface_name,
+                    "Subnet": interface_info.get('IPAddress') or None,
+                    "IPAddresses": [interface_info.get('IPAddress')] if interface_info.get('IPAddress') else [],
+                    "DnsServers": dns_servers if isinstance(dns_servers, list) else []
                 }
                 for interface_name, interface_info in container.attrs.get('NetworkSettings', {}).get('Networks', {}).items()
             ],

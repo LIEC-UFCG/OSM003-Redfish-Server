@@ -1,6 +1,7 @@
 import json
 import os
 from flask import jsonify, request, make_response
+import config as app_config
 
 SESSION_SERVICE_FILE = "session_service.json"
 
@@ -60,7 +61,7 @@ def get_session_service():
         "Name": "Session Service",
         "Description": "Session Service",
         "ServiceEnabled": session_service_state["ServiceEnabled"],
-        "SessionTimeout": session_service_state["SessionTimeout"],
+        "SessionTimeout": app_config.SESSION_TIMEOUT,
         "Sessions": {
             "@odata.id": f"/redfish/v1/SessionService/Sessions",
             "@odata.type": "#SessionCollection.v1_8_0.SessionCollection"

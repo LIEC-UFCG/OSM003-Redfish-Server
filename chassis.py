@@ -247,7 +247,7 @@ def get_power_supply(system_id=None, psu_id="PSU1"):
         "Manufacturer": readings.manufacturer(),
         "Model": readings.model(),
         "PowerCapacityWatts": readings.power_capacity_watts(),
-        "InputNominalVoltageType": "ACHighLine",
+        "InputNominalVoltageType": readings.input_nominal_voltage_type(),
         "Status": {
             "Health": readings.power_health(),
             "State": "Enabled"

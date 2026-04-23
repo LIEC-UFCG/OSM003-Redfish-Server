@@ -46,6 +46,41 @@ def _capacity_to_bytes(value):
     return None
 
 
+def _processor_socket_count():
+    """Return detected CPU socket count using lscpu, with safe fallbacks."""
+    try:
+        result = subprocess.run(
+            ["lscpu", "-p=socket"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        socket_ids = {
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line and not line.startswith("#") and line.strip() not in ("", "-1")
+        }
+        if socket_ids:
+            return len(socket_ids)
+    except Exception:
+        pass
+
+    try:
+        physical_ids = set()
+        with open("/proc/cpuinfo", "r", encoding="utf-8") as cpuinfo_file:
+            for line in cpuinfo_file:
+                if line.lower().startswith("physical id"):
+                    parts = line.split(":", 1)
+                    if len(parts) == 2:
+                        physical_ids.add(parts[1].strip())
+        if physical_ids:
+            return len(physical_ids)
+    except Exception:
+        pass
+
+    return 1
+
+
 def get_computer(system_id=None):
     """
     Returns the collection of computer systems.
@@ -86,15 +121,10 @@ def get_computer_system(system_id=None):
             "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces",
         },
         "HostedServices": {
-            "Oem": {
-                "OSM003": {
-                    "DistributedControlNodeServices": {
-                        "@odata.id": "/redfish/v1/DistributedControlNode"
-                    }
-                }
+            "DistributedControlNodeServices": {
+                "@odata.id": "/redfish/v1/DistributedControlNode"
             }
         },
-        
         #"IndicatorLED": readings.power_led(),
         "Links": {
             "Chassis": [
@@ -119,14 +149,22 @@ def get_computer_system(system_id=None):
         #},
         "MemorySummary": {
             "TotalSystemMemoryGiB": readings.memory_total(),
+            "Status": {
+                "Health": readings.memory_health(),
+                "State": "Enabled"
+            }
         },
         "Model": readings.model(),
         "OperatingSystem": {
             "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/OperatingSystem"
         },
         "ProcessorSummary": {
-            "Count": 1,  # Raspberry Pi has 1 physical processor
+            "Count": _processor_socket_count(),
             "Model": readings.cpu_model(),  # Processor model
+            "Status": {
+                "Health": readings.cpu_health(),
+                "State": "Enabled"
+            }
         },
         "Processors": {
             "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/Processors"

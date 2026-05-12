@@ -1,6 +1,11 @@
 import readings
 from copy import deepcopy
 
+
+def _resolve_system_id(system_id=None):
+    """Return the requested system ID or fall back to local machine ID."""
+    return system_id or readings.machine_id()
+
 def dynamic_eth_funcs():
     """
     Dynamically generates endpoint functions for each Ethernet interface detected in the system.
@@ -20,7 +25,8 @@ def dynamic_eth_funcs():
             iface_name = deepcopy(member)
             iface_number = str(deepcopy(interface_counter))
 
-            def interface_function():
+            def interface_function(system_id=None):
+                resolved_system_id = _resolve_system_id(system_id)
                 stats = readings.eth_stats(iface_name)
 
                 interface = {
@@ -38,7 +44,7 @@ def dynamic_eth_funcs():
                     #"Gateway": stats.get('gateway', "0.0.0.0"),  # If missing, assumes "0.0.0.0"
                     "NameServers": stats['dns'],
                     "@odata.context": "/redfish/v1/$metadata#EthernetInterface.EthernetInterface",  # Corrected
-                    "@odata.id": f"/redfish/v1/Systems/{readings.machine_id()}/EthernetInterfaces/{iface_name}",
+                    "@odata.id": f"/redfish/v1/Systems/{resolved_system_id}/EthernetInterfaces/{iface_name}",
                 }
                 return interface
 
@@ -52,14 +58,14 @@ def dynamic_eth_funcs():
 
    
 
-def get_computersystem_id_ethernetInterfaces():
+def get_computersystem_id_ethernetInterfaces(system_id=None):
     """
     Returns all Ethernet network interfaces of the system in Redfish format.
 
     Returns:
         dict: Redfish dictionary with the Ethernet interface collection with references to members.
     """
-    machine_id = readings.machine_id()
+    machine_id = _resolve_system_id(system_id)
     member_refs = []
     
     for iface in readings.eth_names():

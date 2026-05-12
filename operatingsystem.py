@@ -12,28 +12,24 @@ def get_operating_system():
         "@odata.type": "#OperatingSystem.v1_0_2.OperatingSystem",
         "Id": "OperatingSystem",
         "Name": "Operating System",
-        "Oem": {
-            "OSM003": {
-                "AccumulatedRunTime": "Unknown",
-                "Hostname": readings.get_hostname(),
-                "KernelName": readings.get_kernel_name(),
-                "KernelRelease": readings.get_kernel_release(),
-                "KernelVersion": readings.get_kernel_version(),
-                "LastBootTime": readings.get_last_boot_time(),
-                "Containers": {
-                    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem/Containers"
-                },
-                "LogServices": {
-                    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/LogServices"
-                },
-                "Metrics": {
-                    "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem/OperatingSystemMetrics"
-                },
-                "OperatingSystemName": readings.get_operating_system_name(),
-                "ProcessorArchitecture": readings.get_processor_architecture(),
-                "VirtualMachines": []
-            }
+        "AccumulatedRunTime": "Unknown",
+        "Hostname": readings.get_hostname(),
+        "KernelName": readings.get_kernel_name(),
+        "KernelRelease": readings.get_kernel_release(),
+        "KernelVersion": readings.get_kernel_version(),
+        "LastBootTime": readings.get_last_boot_time(),
+        "Containers": {
+            "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem/Containers"
         },
+        "LogServices": {
+            "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/LogServices"
+        },
+        "Metrics": {
+            "@odata.id": "/redfish/v1/Systems/" + readings.machine_id() + "/OperatingSystem/OperatingSystemMetrics"
+        },
+        "OperatingSystemName": readings.get_operating_system_name(),
+        "ProcessorArchitecture": readings.get_processor_architecture(),
+        "VirtualMachines": [],
         "Status": {
             "State": "Enabled",
             "Health": "OK"

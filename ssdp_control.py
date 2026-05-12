@@ -1,5 +1,6 @@
 from multiprocessing import Process
 from service_discovery import discovery_SSDP
+import readings
 
 ssdp_process = None
 
@@ -11,6 +12,10 @@ def start_ssdp():
         Updates the global SSDP process handle and spawns a background process.
     """
     global ssdp_process
+    if not readings.get_ssdp_enabled():
+        print("SSDP desabilitado por configuracao.")
+        return
+
     if ssdp_process is None or not ssdp_process.is_alive():
         ssdp_process = Process(target=discovery_SSDP)
         ssdp_process.start()

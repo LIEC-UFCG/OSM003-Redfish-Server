@@ -6,7 +6,7 @@ import secrets
 import time
 from datetime import datetime, timezone
 from uuid import uuid4
-from config import SESSION_TIMEOUT
+from config import SESSION_TIMEOUT, ALLOW_MULTIPLE_SESSIONS
 from logservice import add_auth_log_entry, add_audit_log_entry, add_error_log_entry
 import readings
 
@@ -92,8 +92,8 @@ def _to_redfish_datetime(value):
 def create_session():
     """Create a new authenticated session for a valid user.
     
-    Validates user and password, prevents multiple simultaneous sessions for same user,
-    generates a secure token and saves the session.
+    Validates user and password, generates a secure token and saves the session.
+    Can optionally enforce one active session per user through configuration.
     
     Returns:
         flask.Response: Response with session data, X-Auth-Token header and 201 status,
@@ -147,19 +147,19 @@ def create_session():
     # Important: reload sessions after cleanup
     # (or continue using cleaned `sessions` directly, as below)
 
-    # Check if user already has an active session
-    for sid, sess in sessions.items():
-        if sess["UserName"] == username:
-            return make_response({
-                "error": f"User '{username}' already has an active session.",
-                "existing_session": {
-                    "@odata.id": f"/redfish/v1/SessionService/Sessions/{sid}",
-                    "Id": sid,
-                    "UserName": username,
-                    "CreatedTime": _to_redfish_datetime(sess.get("CreatedTime")),
-                    "ExpirationTime": _to_redfish_datetime(sess.get("ExpirationTime"))
-                }
-            }, 409)
+    if not ALLOW_MULTIPLE_SESSIONS:
+        for sid, sess in sessions.items():
+            if sess.get("UserName") == username:
+                return make_response({
+                    "error": f"User '{username}' already has an active session.",
+                    "existing_session": {
+                        "@odata.id": f"/redfish/v1/SessionService/Sessions/{sid}",
+                        "Id": sid,
+                        "UserName": username,
+                        "CreatedTime": _to_redfish_datetime(sess.get("CreatedTime")),
+                        "ExpirationTime": _to_redfish_datetime(sess.get("ExpirationTime"))
+                    }
+                }, 409)
 
     # Generate a secure token
     token = secrets.token_hex(32)

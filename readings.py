@@ -3,10 +3,12 @@ from datetime import datetime
 import psutil
 import json
 import os
+import glob
 import socket
 import platform
 import re
 import subprocess
+import config as app_config
 
 def get_environment():
     """
@@ -187,11 +189,26 @@ def power_led():
     Returns:
         str: "On" if LED is on, "Off" otherwise.
     """
-    led_brightness = int(check_output(["cat", "/sys/class/leds/PWR/brightness"]).decode("utf-8"))
-    if(led_brightness > 0):
-        return "On"
-    else:
-        return "Off"
+    try:
+        path = "/sys/class/leds/PWR/brightness"
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                led_brightness = int(f.read().strip())
+                return "On" if led_brightness > 0 else "Off"
+
+        # Some systems expose the power LED under a different name.
+        for fallback_path in (
+            "/sys/class/leds/ACT/brightness",
+            "/sys/class/leds/led1/brightness",
+        ):
+            if os.path.exists(fallback_path):
+                with open(fallback_path, "r", encoding="utf-8") as f:
+                    led_brightness = int(f.read().strip())
+                    return "On" if led_brightness > 0 else "Off"
+    except Exception as e:
+        print(f"Error reading power LED state: {e}")
+
+    return "Off"
 
 
 
@@ -233,8 +250,30 @@ def manufacturer():
             return "Unknown"
 
     elif env == 'dcn':
+        # Prefer sysfs sources because they are fast and do not require elevation.
+        for path in (
+            "/sys/devices/virtual/dmi/id/board_vendor",
+            "/sys/devices/virtual/dmi/id/sys_vendor",
+        ):
+            try:
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        value = f.read().strip()
+                        if value:
+                            return value
+            except Exception:
+                continue
+
+        # Fallback to dmidecode without sudo and with timeout to avoid HTTP hangs.
         try:
-            output = check_output(['sudo', 'dmidecode', '-s', 'baseboard-manufacturer']).decode("utf-8").strip()
+            result = subprocess.run(
+                ['dmidecode', '-s', 'baseboard-manufacturer'],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+            output = (result.stdout or "").strip()
             return output if output else "Unknown"
         except Exception as e:
             print(f"Error getting manufacturer on DCN: {e}")
@@ -281,6 +320,170 @@ def power_health():
         except Exception as e:
             print(f"Error calculating system health: {e}")
             return "Unknown"
+
+
+def _safe_float(value):
+    """Convert value to float when possible, else return None."""
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_number_from_file(path):
+    """Read a numeric value from sysfs-style files."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return _safe_float(f.read().strip())
+    except Exception:
+        return None
+
+
+def _to_watts(raw_value):
+    """Normalize sysfs power values (uW/mW/W) into watts."""
+    if raw_value is None:
+        return None
+
+    value = float(raw_value)
+
+    if value >= 100000:
+        # Common Linux power_supply unit: microwatts.
+        return value / 1_000_000.0
+    if value >= 1000:
+        # Some platforms expose milliwatts.
+        return value / 1000.0
+    return value
+
+
+def _is_supply_online(supply_dir):
+    """Return True when power supply reports online, or if unknown."""
+    online_value = _read_number_from_file(os.path.join(supply_dir, "online"))
+    return online_value is None or int(online_value) == 1
+
+
+def _get_supply_power_watts(candidates):
+    """Try to read power from /sys/class/power_supply using candidate field names."""
+    for supply_dir in glob.glob("/sys/class/power_supply/*"):
+        if not _is_supply_online(supply_dir):
+            continue
+
+        for field in candidates:
+            raw = _read_number_from_file(os.path.join(supply_dir, field))
+            watts = _to_watts(raw)
+            if watts is not None and watts > 0:
+                return round(watts, 2)
+    return None
+
+
+_INPUT_NOMINAL_VOLTAGE_TYPES = {
+    "AC100To127V", "AC100To240V", "AC100To277V", "AC120V", "AC200To240V",
+    "AC200To277V", "AC208V", "AC230V", "AC240V", "AC240AndDC380V",
+    "AC277V", "AC277AndDC380V", "AC400V", "AC480V", "DC48V", "DC240V",
+    "DC380V", "DC400V", "DC800V", "DCNeg48V", "DC16V", "DC12V", "DC9V",
+    "DC5V", "DC3_3V", "DC1_8V"
+}
+
+
+def _read_text_from_file(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+
+def _voltage_to_nominal_type(voltage_volts, supply_type):
+    if voltage_volts is None:
+        return None
+
+    stype = (supply_type or "").lower()
+
+    # For mains/AC adapters, map common nominal ranges.
+    if "mains" in stype or "ac" in stype:
+        if 95 <= voltage_volts <= 130:
+            return "AC120V"
+        if 190 <= voltage_volts <= 215:
+            return "AC208V"
+        if 216 <= voltage_volts <= 235:
+            return "AC230V"
+        if 236 <= voltage_volts <= 250:
+            return "AC240V"
+        if 190 <= voltage_volts <= 250:
+            return "AC200To240V"
+        if 100 <= voltage_volts <= 240:
+            return "AC100To240V"
+        return None
+
+    # For battery/DC rails, map low-voltage and telecom ranges.
+    if 1.6 <= voltage_volts <= 2.0:
+        return "DC1_8V"
+    if 3.0 <= voltage_volts <= 3.6:
+        return "DC3_3V"
+    if 4.5 <= voltage_volts <= 5.5:
+        return "DC5V"
+    if 8.0 <= voltage_volts <= 10.0:
+        return "DC9V"
+    if 11.0 <= voltage_volts <= 13.0:
+        return "DC12V"
+    if 15.0 <= voltage_volts <= 17.0:
+        return "DC16V"
+    if 44.0 <= voltage_volts <= 52.0:
+        return "DC48V"
+
+    return None
+
+
+def input_nominal_voltage_type():
+    """Return a valid Redfish InputNominalVoltageType from device or config fallback."""
+    for supply_dir in glob.glob("/sys/class/power_supply/*"):
+        if not _is_supply_online(supply_dir):
+            continue
+
+        supply_type = _read_text_from_file(os.path.join(supply_dir, "type"))
+
+        raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_now"))
+        if raw_uv is None:
+            raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_max"))
+        if raw_uv is None:
+            raw_uv = _read_number_from_file(os.path.join(supply_dir, "voltage_min"))
+
+        if raw_uv is not None:
+            voltage_volts = float(raw_uv)
+            if voltage_volts >= 1000:
+                # sysfs voltage is usually in microvolts.
+                voltage_volts = voltage_volts / 1_000_000.0
+
+            inferred = _voltage_to_nominal_type(voltage_volts, supply_type)
+            if inferred in _INPUT_NOMINAL_VOLTAGE_TYPES:
+                return inferred
+
+    configured = str(getattr(app_config, "POWER_INPUT_NOMINAL_VOLTAGE_TYPE", "")).strip()
+    if configured in _INPUT_NOMINAL_VOLTAGE_TYPES:
+        return configured
+
+    return "AC200To240V"
+
+
+def power_capacity_watts():
+    """Return chassis power capacity in watts from device data or configuration."""
+    measured = _get_supply_power_watts(["power_max", "power_max_design", "power_now"])
+    if measured is not None:
+        return measured
+
+    configured = _safe_float(getattr(app_config, "POWER_CAPACITY_WATTS", None))
+    return round(configured, 2) if configured is not None else 0.0
+
+
+def power_allocated_watts():
+    """Return allocated power in watts from device data or configuration."""
+    measured = _get_supply_power_watts(["power_now", "power_avg"])
+    if measured is not None:
+        return measured
+
+    configured = _safe_float(getattr(app_config, "POWER_ALLOCATED_WATTS", None))
+    return round(configured, 2) if configured is not None else 0.0
 
 
 
@@ -1129,10 +1332,7 @@ def storage_count():
     Returns:
         int: Number of detected storage devices.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
-    return len(disks)
+    return len(storage_names())
 
 def storage_members():
     """
@@ -1141,12 +1341,8 @@ def storage_members():
     Returns:
         list: List of dictionaries with '@odata.id' field for each device.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
     disk_members = []
-    for disk in disks:
-        disk_name = disk.split()[0]
+    for disk_name in storage_names():
         disk_members.append({
             "@odata.id": "/redfish/v1/Systems/" + machine_id() + "/SimpleStorage/" + disk_name
         })
@@ -1159,13 +1355,16 @@ def storage_names():
     Returns:
         list: List with the names of storage devices.
     """
-    lsblk = Popen(['lsblk'], stdout=PIPE)
-    disk_parse = check_output(["grep", "disk"], stdin=lsblk.stdout).decode("utf-8")
-    disks = disk_parse.split('\n')[:-1]
     disk_names = []
-    for disk in disks:
-        disk_name = disk.split()[0]
-        disk_names.append(disk_name)
+    try:
+        lsblk_output = check_output(["lsblk", "-dn", "-o", "NAME,TYPE"], stderr=DEVNULL).decode("utf-8")
+    except (FileNotFoundError, CalledProcessError, OSError):
+        return disk_names
+
+    for line in lsblk_output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == "disk":
+            disk_names.append(parts[0])
     return disk_names
 
 def storage_stats(device):
@@ -2326,7 +2525,37 @@ def get_metrics_timestamp():
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-ssdp_enabled = True
+SSDP_CONFIG_FILE = "ssdp_config.json"
+
+
+def _load_ssdp_config():
+    """Load persisted SSDP settings from disk.
+
+    Returns:
+        dict: SSDP configuration dictionary with ProtocolEnabled key.
+    """
+    if os.path.exists(SSDP_CONFIG_FILE):
+        try:
+            with open(SSDP_CONFIG_FILE, "r") as file:
+                data = json.load(file)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {"ProtocolEnabled": True}
+
+
+def _save_ssdp_config(enabled):
+    """Persist SSDP enabled state to disk.
+
+    Args:
+        enabled (bool): Desired SSDP protocol enabled state.
+    """
+    try:
+        with open(SSDP_CONFIG_FILE, "w") as file:
+            json.dump({"ProtocolEnabled": bool(enabled)}, file)
+    except Exception as e:
+        print(f"Error updating SSDP.ProtocolEnabled: {e}")
 
 def get_ssdp_enabled():
     """
@@ -2335,7 +2564,8 @@ def get_ssdp_enabled():
     Returns:
         bool: Current SSDP enabled state.
     """
-    return ssdp_enabled
+    config = _load_ssdp_config()
+    return bool(config.get("ProtocolEnabled", True))
 
 def set_ssdp_enabled(value):
     """
@@ -2344,5 +2574,4 @@ def set_ssdp_enabled(value):
     Args:
         value (bool): New SSDP state.
     """
-    global ssdp_enabled
-    ssdp_enabled = value
+    _save_ssdp_config(bool(value))

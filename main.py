@@ -29,7 +29,7 @@ import time
 from session import load_sessions, save_sessions
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from config import FLASK_PORT, FLASK_IP, CERT_FILE, KEY_FILE
+from config import FLASK_PORT, FLASK_IP, CERT_FILE, KEY_FILE, ENABLE_RATE_LIMIT, RATE_LIMIT
 import subprocess
 from gerar_certificado_dinamico import obter_ip_local, gerar_certificados, certificados_estao_atualizados, registrar_certificado_no_sistema
 from flask_talisman import Talisman
@@ -81,10 +81,6 @@ limiter = Limiter(
     default_limits=[],
     storage_uri=RATE_LIMIT_STORAGE_URI if RATE_LIMIT_STORAGE_URI else "memory://"
 )
-
-RATE_LIMIT = "1 per second"
-# Control rate limiting via environment variable: 1/true/yes/on enables it.
-ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").strip().lower() in ("1", "true", "yes", "on")
 
 def conditional_limit(limit):
     def decorator(func):
@@ -421,7 +417,7 @@ def get_chassis_id(system_id):
             - PATCH: Updates chassis AssetTag and returns success or error message.
     """
     if request.method == 'GET':
-        return chassis.get_chassis_id()
+        return chassis.get_chassis_id(system_id)
     elif request.method == 'PATCH':
         data = request.get_json()
         if "AssetTag" in data:
@@ -446,7 +442,7 @@ def get_chassis_id_thermalSubsystem(system_id):
     Returns:
         flask.Response: JSON with thermal subsystem information.
     """
-    return chassis.get_thermalSubsystem()
+    return chassis.get_thermalSubsystem(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics endpoint, allows GET and PATCH methods
 @app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem/ThermalMetrics', methods=['GET'], strict_slashes=False)
@@ -461,7 +457,7 @@ def get_chassis_id_thermalMetrics(system_id):
     Returns:
         flask.Response: JSON with chassis thermal metrics.
     """
-    return chassis.get_thermalMetrics()
+    return chassis.get_thermalMetrics(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/PowerSubsystem endpoint, returns power information
 @app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem', methods=['GET'], strict_slashes=False)
@@ -476,7 +472,39 @@ def get_chassis_id_powerSubsystem(system_id):
     Returns:
         flask.Response: JSON with power subsystem information.
     """
-    return chassis.get_powerSubsystem()
+    return chassis.get_powerSubsystem(system_id)
+
+
+# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies endpoint
+@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("PowerSubsystem")
+def get_chassis_id_powerSupplies(system_id):
+    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies.
+
+    Returns power supply collection information for the chassis.
+
+    Returns:
+        flask.Response: JSON with power supply collection information.
+    """
+    return chassis.get_power_supplies(system_id)
+
+
+# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id> endpoint
+@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("PowerSubsystem")
+def get_chassis_id_powerSupply(system_id, psu_id):
+    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>.
+
+    Returns one power supply resource for the chassis.
+
+    Returns:
+        flask.Response: JSON with power supply data.
+    """
+    return chassis.get_power_supply(system_id, psu_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/Sensors endpoint, returns sensor information
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors', methods=['GET'], strict_slashes=False)
@@ -491,7 +519,7 @@ def get_chassis_id_sensors(system_id):
     Returns:
         flask.Response: JSON with readings from chassis sensors.
     """
-    return chassis.get_sensors()
+    return chassis.get_sensors(system_id)
 
 # Route for /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id> endpoint, returns one sensor
 @app.route('/redfish/v1/Chassis/<system_id>/Sensors/<sensor_id>', methods=['GET'], strict_slashes=False)
@@ -506,7 +534,7 @@ def get_chassis_id_sensor(system_id, sensor_id):
     Returns:
         flask.Response: JSON with sensor data.
     """
-    return chassis.get_sensor(sensor_id)
+    return chassis.get_sensor(sensor_id, system_id)
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Route for /redfish/v1/JsonSchemas/ endpoint
@@ -585,7 +613,7 @@ def get_computer_id(system_id):
     Returns:
         Detailed information about the computer system identified by machine_id.
     """
-    return computersystem.get_computer_system()
+    return computersystem.get_computer_system(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/Processors endpoint
 # Returns information about the computer system processors
@@ -599,7 +627,7 @@ def get_systems_id_processors(system_id):
     Returns:
         Information about the computer system processors.
     """
-    return computersystem.get_systems_id_processors()
+    return computersystem.get_systems_id_processors(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/Processors/CPU1 endpoint
 # Returns detailed information about the CPU1 processor of the computer system
@@ -613,7 +641,7 @@ def get_systems_id_processors_cpu1(system_id):
     Returns:
         Detailed information about the CPU1 processor of the computer system.
     """
-    return computersystem.get_systems_id_processors_cpu1()
+    return computersystem.get_systems_id_processors_cpu1(system_id)
 
 # Route for /redfish/v1/Systems/<machine_id>/SimpleStorage
 # Returns information about simple storage devices of the system
@@ -627,23 +655,46 @@ def get_systems_id_simpleStorage(system_id):
     Returns:
         Information about simple storage devices of the system.
     """
-    return computersystem.get_systems_id_simpleStorage()
+    return computersystem.get_systems_id_simpleStorage(system_id)
+
+# Route for /redfish/v1/Systems/<system_id>/Storage
+# Returns information about storage devices of the system
+@app.route('/redfish/v1/Systems/<system_id>/Storage', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("SimpleStorageCollection")
+def get_systems_id_storage(system_id):
+    """Route for endpoint /redfish/v1/Systems/<system_id>/Storage, allows GET method.
+
+    Returns:
+        Information about storage devices of the system.
+    """
+    return computersystem.get_systems_id_storage(system_id)
 
 
 if os.environ.get("SPHINX_BUILD") != "1":
     storage_functions = computersystem.dynamic_storage_funcs() # Get dynamic storage functions
+    storage_resource_functions = computersystem.dynamic_storage_resource_funcs()
 
     for func in storage_functions: # Iterate over storage functions
         # Register each function as a Flask route
         # The function name is used to create the route, removing the 'storage_' prefix
         # The HTTP method is set to GET
-        route = f"/redfish/v1/Systems/{readings.machine_id()}/SimpleStorage/{func.__name__.replace('storage_', '')}"
+        route = f"/redfish/v1/Systems/<system_id>/SimpleStorage/{func.__name__.replace('storage_', '')}"
         # Manually chain decorators
         protected_func = requires_privilege("SimpleStorage")(
                             requires_authentication(func)
                         )
         decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
-        app.route(route, methods=['GET'])(decorated_func)
+        app.route(route, methods=['GET'], endpoint=f"simple_storage_{func.__name__}")(decorated_func)
+
+    for func in storage_resource_functions:
+        route = f"/redfish/v1/Systems/<system_id>/Storage/{func.__name__.replace('storage_resource_', '')}"
+        protected_func = requires_privilege("SimpleStorage")(
+                            requires_authentication(func)
+                        )
+        decorated_func = conditional_limit(RATE_LIMIT)(protected_func)
+        app.route(route, methods=['GET'], endpoint=f"storage_{func.__name__}")(decorated_func)
 
 # Route to retrieve operating system information
 @app.route('/redfish/v1/Systems/<system_id>/OperatingSystem', methods=['GET'], strict_slashes=False) 
@@ -1094,24 +1145,24 @@ def distributed_control_node_endpoint():
     return distributedcontrolnode.get_dcn()
 
 # Route to retrieve Ethernet interfaces
-@app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces', methods=['GET'], strict_slashes=False) 
+@app.route('/redfish/v1/Systems/<system_id>/EthernetInterfaces', methods=['GET'], strict_slashes=False) 
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterfaceCollection")
-def get_computersystem_id_ethernetInterfaces():
+def get_computersystem_id_ethernetInterfaces(system_id):
     """Route to retrieve Ethernet interfaces.
     
     Returns:
         All interfaces in the EthernetInterfaces JSON.
     """
-    return ethernetinterfaces.get_computersystem_id_ethernetInterfaces()
+    return ethernetinterfaces.get_computersystem_id_ethernetInterfaces(system_id)
 
 # Route to retrieve detailed information of a specific Ethernet interface
-@app.route(f'/redfish/v1/Systems/{system_id}/EthernetInterfaces/<iface>', methods=['GET'], strict_slashes=False)
+@app.route('/redfish/v1/Systems/<system_id>/EthernetInterfaces/<iface>', methods=['GET'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 @requires_authentication
 @requires_privilege("EthernetInterface")
-def get_computersystem_id_ethernetInterfaces_iface(iface):
+def get_computersystem_id_ethernetInterfaces_iface(system_id, iface):
     """Allow retrieving detailed information of a specific Ethernet interface.
     
     Args:
@@ -1126,7 +1177,7 @@ def get_computersystem_id_ethernetInterfaces_iface(iface):
     # If function name matches iface parameter, call the function
     for func in funcs:
         if func.__name__ == iface:
-            return func()
+            return func(system_id)
     abort(404)
 
 # Allow retrieving and updating event service information
@@ -1574,7 +1625,10 @@ if __name__ == '__main__':
         if os.getenv("REGISTER_CERT_IN_SYSTEM", "false").lower() == "true":
          registrar_certificado_no_sistema()
 
-    ssdp_control.start_ssdp()
+    if readings.get_ssdp_enabled():
+        ssdp_control.start_ssdp()
+    else:
+        print("SSDP disabled at startup by ManagerNetworkProtocol setting.")
 
     # Start Flask server in a separate process
     # Flask process is started with configured IP and port

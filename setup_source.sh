@@ -70,11 +70,28 @@ if [ ! -f "requirements.txt" ] || [ ! -f "main.py" ]; then
 fi
 
 if [ "$ENABLE_DOCKER_GROUP" = "1" ]; then
+    log "Setting up Docker access"
+    
+    # Install Docker if not already installed
+    if ! command -v docker >/dev/null 2>&1; then
+        log "Installing Docker"
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+    fi
+    
+    # Create the docker group if it doesn't exist
+    if ! getent group docker >/dev/null; then
+        log "Creating docker group"
+        sudo groupadd docker
+    fi
+    
+    # Add user to docker group
     if ! groups "$USER" | grep -qw docker; then
         log "Adding user to the docker group"
         sudo usermod -aG docker "$USER"
         log "Restart the session to apply the docker group change"
     fi
+    
     sudo systemctl enable --now docker
 fi
 

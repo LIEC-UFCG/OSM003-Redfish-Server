@@ -73,19 +73,25 @@ def gerar_certificados(ip):
     ext_content = f"""
 [req]
 distinguished_name = req_distinguished_name
+# CSR-time extensions (used by openssl req). Do NOT include authorityKeyIdentifier here.
 req_extensions = v3_req
 
 [req_distinguished_name]
-
 
 [v3_req]
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectKeyIdentifier = hash
-# For self-signed certs we must not request the issuer field in authorityKeyIdentifier
-# because there is no issuer certificate available during CSR creation/signing.
-# Use only the keyid form which is safe for self-signed certificates.
+subjectAltName = @alt_names
+
+# v3_sign: used when creating the certificate from the CSR (openssl x509 -req).
+# This section may include authorityKeyIdentifier; it will be evaluated at signing time.
+[v3_sign]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid
 subjectAltName = @alt_names
 
@@ -104,7 +110,7 @@ DNS.1 = {hostname}
     # Self-sign the CSR using the v3 extensions to create an X.509v3 certificate
     subprocess.run([
         "openssl", "x509", "-req", "-days", "365", "-in", "domain.csr",
-        "-signkey", "domain.key", "-out", "domainSAN.crt", "-extfile", "domain.ext", "-extensions", "v3_req"
+        "-signkey", "domain.key", "-out", "domainSAN.crt", "-extfile", "domain.ext", "-extensions", "v3_sign"
     ], check=True)
 
     print("Certificates generated successfully: domainSAN.crt (X.509 v3)")

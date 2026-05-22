@@ -41,6 +41,7 @@ from flask import current_app
 from flask_limiter.errors import RateLimitExceeded
 from flask import jsonify
 import logging
+import ipaddress
 
 RATE_LIMIT_STORAGE_URI = os.getenv("RATE_LIMIT_STORAGE_URI")
 
@@ -1576,19 +1577,54 @@ def gerar_certificados_interativo():
     ext_file = "domain.ext"
     cert_file = "domainSAN.crt"
 
-    print(" Generating private key...")
-    subprocess.run(["openssl", "genrsa", "-out", key_file, "2048"], check=True)
+    print(" Generating private key (RSA 4096)...")
+    subprocess.run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:4096", "-out", key_file], check=True)
+
+    hostname = cn
+    # Create v3 extension file including SAN for DNS and/or IP depending on CN
+    try:
+        ip = obter_ip_local()
+    except Exception:
+        ip = None
+
+    ext_content = """
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+
+[req_distinguished_name]
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName = @alt_names
+
+[alt_names]
+"""
+
+    # If CN is an IP, add as IP.1; otherwise add CN as DNS.1 and optionally local IP
+    try:
+        ipaddress.ip_address(cn)
+        ext_content += f"IP.1 = {cn}\n"
+    except ValueError:
+        ext_content += f"DNS.1 = {cn}\n"
+        if ip and ip != "127.0.0.1":
+            ext_content += f"IP.1 = {ip}\n"
+
+    print(" Creating domain.ext file with SAN...")
+    with open(ext_file, "w") as f:
+        f.write(ext_content)
 
     print(" Generating CSR...")
     subprocess.run([
         "openssl", "req", "-new", "-key", key_file,
         "-out", csr_file,
-        "-subj", f"/CN={cn}"
+        "-subj", f"/CN={hostname}",
+        "-config", ext_file
     ], check=True)
-
-    print(" Creating domain.ext file with SAN...")
-    with open(ext_file, "w") as f:
-        f.write(f"subjectAltName=DNS:{cn}\n")
 
     print(" Generating certificate with SAN...")
     subprocess.run([
@@ -1596,7 +1632,7 @@ def gerar_certificados_interativo():
         "-in", csr_file,
         "-signkey", key_file,
         "-out", cert_file,
-        "-extfile", ext_file
+        "-extfile", ext_file, "-extensions", "v3_req"
     ], check=True)
 
     print(" Certificate generated successfully:", cert_file)

@@ -65,18 +65,45 @@ def gerar_certificados(ip):
     """
     print(f"Generating certificates for IP: {ip}")
 
-    subprocess.run(["openssl", "genrsa", "-out", "domain.key", "2048"], check=True)
-    subprocess.run(["openssl", "req", "-new", "-key", "domain.key", "-out", "domain.csr", "-subj", f"/CN={ip}"], check=True)
+    # Use a modern key generation command (RSA 4096)
+    subprocess.run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:4096", "-out", "domain.key"], check=True)
+
+    # Prepare a v3 extensions file including SAN for both IP and hostname
+    hostname = os.getenv("CERT_HOSTNAME") or socket.gethostname()
+    ext_content = f"""
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+
+[req_distinguished_name]
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1 = {ip}
+DNS.1 = {hostname}
+"""
 
     with open("domain.ext", "w") as f:
-        f.write(f"subjectAltName=IP:{ip}\n")
+        f.write(ext_content)
 
+    # Create CSR with CN set to hostname (or IP as fallback)
+    cn = hostname or ip
+    subprocess.run(["openssl", "req", "-new", "-key", "domain.key", "-out", "domain.csr", "-subj", f"/CN={cn}", "-config", "domain.ext"], check=True)
+
+    # Self-sign the CSR using the v3 extensions to create an X.509v3 certificate
     subprocess.run([
         "openssl", "x509", "-req", "-days", "365", "-in", "domain.csr",
-        "-signkey", "domain.key", "-out", "domainSAN.crt", "-extfile", "domain.ext"
+        "-signkey", "domain.key", "-out", "domainSAN.crt", "-extfile", "domain.ext", "-extensions", "v3_req"
     ], check=True)
 
-    print("Certificates generated successfully.")
+    print("Certificates generated successfully: domainSAN.crt (X.509 v3)")
 
 def registrar_certificado_no_sistema():
     """

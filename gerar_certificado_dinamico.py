@@ -77,12 +77,16 @@ req_extensions = v3_req
 
 [req_distinguished_name]
 
+
 [v3_req]
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
+# For self-signed certs we must not request the issuer field in authorityKeyIdentifier
+# because there is no issuer certificate available during CSR creation/signing.
+# Use only the keyid form which is safe for self-signed certificates.
+authorityKeyIdentifier = keyid
 subjectAltName = @alt_names
 
 [alt_names]

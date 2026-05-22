@@ -163,14 +163,18 @@ def get_redfish_root():
     Returns:
         flask.Response: Formatted JSON response with Redfish root data.
     """
-    redfish_data = redfish_root.get_redfish_v1()
-    return Response(
-        json.dumps(redfish_data, indent=2, ensure_ascii=False), # Format JSON
-        mimetype='application/json'                             # Define content type as JSON
-    )
+    try:
+        redfish_data = redfish_root.get_redfish_v1()
+        return Response(
+            json.dumps(redfish_data, indent=2, ensure_ascii=False), # Format JSON
+            mimetype='application/json'                             # Define content type as JSON
+        )
+    except Exception as e:
+        logging.error(f"Error in get_redfish_root: {str(e)}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 # Route for unsupported HTTP methods on /redfish/v1/ endpoint
-@app.route('/redfish/v1', methods=['POST', 'PATCH', 'DELETE', 'FAKEMETHODFORTEST'], strict_slashes=False)
+@app.route('/redfish/v1', methods=['POST', 'PATCH', 'DELETE', 'PUT', 'HEAD', 'OPTIONS'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)  
 def redfish_root_unsupported_methods():
     """

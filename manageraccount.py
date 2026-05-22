@@ -1,6 +1,7 @@
 import bcrypt
 import json
 import os
+import hashlib
 from flask import jsonify, request, make_response
 from accountservice import account_service_state
 import re
@@ -156,7 +157,14 @@ def get_account(account_id):
                 }
             }
         }
-        return jsonify(response)
+        # Calculate ETag as MD5 hash of JSON response body
+        response_json = json.dumps(response, sort_keys=True)
+        etag = hashlib.md5(response_json.encode()).hexdigest()
+        
+        # Return response with ETag header
+        resp = make_response(jsonify(response))
+        resp.headers["ETag"] = f'"{etag}"'
+        return resp
 
     return make_response({"error": "Account not found"}, 404)
 

@@ -110,16 +110,13 @@ def create_event_subscription():
         flask.Response: JSON response with the new subscription and status 201,
                         or 400 error if any required field is missing.
     """
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return make_response({"error": "Invalid JSON payload"}, 400)
 
-    # Checks whether all required fields are present
-    required_fields = ["Context", "Destination", "Protocol", "SubscriptionType"]
-    for field in required_fields:
-        if field not in data:
-            return make_response({"error": f"Missing required field: {field}"}, 400)
-
-    if not any(key in data for key in ["EventTypes", "RegistryPrefixes", "ResourceTypes", "MessageIds"]):
-        return make_response({"error": "At least one of EventTypes, RegistryPrefixes, ResourceTypes, or MessageIds is required"}, 400)
+    # Destination is mandatory for EventDestination creation.
+    if "Destination" not in data:
+        return make_response({"error": "Missing required field: Destination"}, 400)
 
     new_id = str(len(event_subscriptions) + 1)
     new_subscription = {
@@ -128,10 +125,10 @@ def create_event_subscription():
         "@odata.type": "#EventDestination.v1_15_1.EventDestination",
         "Id": new_id,
         "Name": "Event Subscription",
-        "Context": data["Context"],
+        "Context": data.get("Context", ""),
         "Destination": data["Destination"],
-        "Protocol": data["Protocol"],
-        "SubscriptionType": data["SubscriptionType"]
+        "Protocol": data.get("Protocol", "Redfish"),
+        "SubscriptionType": data.get("SubscriptionType", "RedfishEvent")
     }
 
     if "RegistryPrefixes" in data:
@@ -142,12 +139,17 @@ def create_event_subscription():
         new_subscription["MessageIds"] = data["MessageIds"]
     if "EventTypes" in data:
         new_subscription["EventTypes"] = data["EventTypes"]
+    else:
+        new_subscription["EventTypes"] = ["StatusChange", "ResourceUpdated", "ResourceAdded", "ResourceRemoved", "Alert"]
 
     # Adds to dictionary and saves to file
     event_subscriptions[new_id] = new_subscription
     save_event_subscriptions(event_subscriptions)
 
-    return jsonify(normalize_event_subscription(new_id, new_subscription)), 201
+    normalized = normalize_event_subscription(new_id, new_subscription)
+    response = make_response(jsonify(normalized), 201)
+    response.headers["Location"] = normalized["@odata.id"]
+    return response
 
 # Deletes an event subscription
 def delete_event_subscription(subscription_id):

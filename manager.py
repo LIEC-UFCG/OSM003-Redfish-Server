@@ -146,7 +146,9 @@ def update_network_protocol():
     Returns:
         flask.Response: Success message and updated fields, or error.
     """
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"Message": "Invalid JSON payload"}), 400
     response = {}
 
     # Updates FQDN
@@ -168,10 +170,13 @@ def update_network_protocol():
         enabled = data["SSDP"]["ProtocolEnabled"]
         readings.set_ssdp_enabled(enabled)
         response["SSDP.ProtocolEnabled"] = enabled
-        if enabled:
-            start_ssdp()
-        else:
-            stop_ssdp()
+        try:
+            if enabled:
+                start_ssdp()
+            else:
+                stop_ssdp()
+        except Exception as e:
+            return jsonify({"Message": f"Failed to update SSDP state: {e}"}), 500
 
     if response:
         return jsonify({"Message": "NetworkProtocol updated successfully", **response}), 200

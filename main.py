@@ -95,6 +95,21 @@ def ratelimit_handler(e):
     current_app.logger.warning("Rate limit exceeded: %s", e)
     return jsonify(error="Too many requests"), 429
 
+@app.before_request
+def validate_odata_version_header():
+    """Validate OData-Version request header for Redfish endpoints.
+
+    Redfish currently supports OData-Version 4.0. If a client sends a
+    different version, return 412 Precondition Failed.
+    """
+    if request.path.startswith('/redfish'):
+        requested_version = request.headers.get('OData-Version')
+        if requested_version and requested_version.strip() != '4.0':
+            return jsonify({
+                "error": "Unsupported OData-Version header",
+                "supported": "4.0"
+            }), 412
+
 # Middleware to format JSON responses with indentation
 
 @app.after_request

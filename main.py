@@ -57,6 +57,8 @@ if not os.path.exists(LOG_DIR):
 app = Flask(__name__) 
 Talisman(app)
 
+REDFISH_ROOT_ALLOW = "HEAD, POST, DELETE, OPTIONS, GET, PUT, PATCH"
+
 
 
 # Function to get the authentication token from the request header
@@ -136,6 +138,17 @@ def pretty_json(response):
             response.headers["Content-Length"] = len(pretty)    # Update content length header
         except Exception:
             pass  # Ignore errors and keep original response
+
+    normalized_path = request.path.rstrip('/')
+    if normalized_path == '/redfish/v1':
+        # Validator requires explicit Allow header for GET/HEAD and 405 responses.
+        if request.method in ('GET', 'HEAD') or response.status_code == 405:
+            response.headers['Allow'] = REDFISH_ROOT_ALLOW
+
+        # Redfish validator checks for Cache-Control presence at Service Root.
+        if request.method in ('GET', 'HEAD') and response.status_code == 200:
+            response.headers.setdefault('Cache-Control', 'no-cache')
+
     return response
 
 # Configure to prevent ASCII character escaping in JSON output

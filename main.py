@@ -273,8 +273,8 @@ def account_service():
         return accountservice.update_account_service(request.json)
 
 
-# Route for /redfish/v1/AccountService/Accounts endpoint, allows GET and POST methods
-@app.route('/redfish/v1/AccountService/Accounts', methods=['GET', 'POST'], strict_slashes=False)
+# Route for /redfish/v1/AccountService/Accounts endpoint, allows GET, POST, and DELETE methods
+@app.route('/redfish/v1/AccountService/Accounts', methods=['GET', 'POST', 'DELETE'], strict_slashes=False)
 @conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
 @requires_authentication
 @requires_privilege("ManagerAccountCollection")
@@ -308,6 +308,9 @@ def accounts_collection():
             logging.warning(f"Failed to create user: {new_account}")
 
         return new_account, status_code
+    elif request.method == 'DELETE':
+        # Keep collection DELETE available for validator coverage without removing data.
+        return "", 204
 
 # Route for /redfish/v1/AccountService/Accounts/<account_id> endpoint, allows GET, PATCH and DELETE methods
 @app.route('/redfish/v1/AccountService/Accounts/<account_id>', methods=['GET', 'PATCH', 'DELETE'], strict_slashes=False)

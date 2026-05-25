@@ -58,6 +58,7 @@ app = Flask(__name__)
 Talisman(app)
 
 REDFISH_ROOT_ALLOW = "HEAD, POST, DELETE, OPTIONS, GET, PUT, PATCH"
+REDFISH_METADATA_LINK = "</redfish/v1/$metadata>; rel=describedby"
 
 
 
@@ -140,6 +141,9 @@ def pretty_json(response):
             pass  # Ignore errors and keep original response
 
     normalized_path = request.path.rstrip('/')
+    if request.path.startswith('/redfish') and request.method in ('GET', 'HEAD'):
+        response.headers.setdefault('Link', REDFISH_METADATA_LINK)
+
     if normalized_path == '/redfish/v1':
         # Validator requires explicit Allow header for GET/HEAD and 405 responses.
         if request.method in ('GET', 'HEAD') or response.status_code == 405:

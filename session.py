@@ -182,6 +182,7 @@ def create_session():
     session_uri = f"/redfish/v1/SessionService/Sessions/{session_id}"
     response_body = {
         "@odata.id": session_uri,
+        "@odata.type": "#Session.v1_8_0.Session",
         "Id": session_id,
         "Name": "User Session",
         "UserName": username,

@@ -1396,6 +1396,31 @@ def session_collection():
     elif request.method == 'POST':
         return session.create_session()
 
+# Support POST to Members property URI as equivalent to collection POST
+@app.route('/redfish/v1/SessionService/Sessions/Members', methods=['POST', 'OPTIONS'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+def session_members_create():
+    """Allow creating sessions through the Members property URI.
+
+    Returns:
+        POST: Creates a new session.
+        OPTIONS: Responds to CORS preflight requests.
+    """
+    session_service_state = sessionservice.load_session_service()
+
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response, 200
+
+    if not session_service_state["ServiceEnabled"]:
+        return make_response({"error": "SessionService is disabled."}, 403)
+
+    return session.create_session()
+
 # Allow retrieving and deleting a specific session
 @app.route('/redfish/v1/SessionService/Sessions/<session_id>', methods=['GET', 'DELETE'], strict_slashes=False) 
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second

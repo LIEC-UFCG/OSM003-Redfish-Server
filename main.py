@@ -59,6 +59,8 @@ Talisman(app)
 
 REDFISH_ROOT_ALLOW = "HEAD, POST, DELETE, OPTIONS, GET, PUT, PATCH"
 REDFISH_METADATA_LINK = "</redfish/v1/$metadata>; rel=describedby"
+REDFISH_ODATA_VERSION = "4.0"
+REDFISH_WWW_AUTHENTICATE = 'Basic realm="Redfish", charset="UTF-8"'
 
 
 
@@ -141,8 +143,14 @@ def pretty_json(response):
             pass  # Ignore errors and keep original response
 
     normalized_path = request.path.rstrip('/')
+    if request.path.startswith('/redfish'):
+        response.headers.setdefault('OData-Version', REDFISH_ODATA_VERSION)
+
     if request.path.startswith('/redfish') and request.method in ('GET', 'HEAD'):
         response.headers.setdefault('Link', REDFISH_METADATA_LINK)
+
+    if request.path.startswith('/redfish') and response.status_code == 401:
+        response.headers.setdefault('WWW-Authenticate', REDFISH_WWW_AUTHENTICATE)
 
     if normalized_path == '/redfish/v1':
         # Validator requires explicit Allow header for GET/HEAD and 405 responses.

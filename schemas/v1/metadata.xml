@@ -47,5 +47,13 @@
         <Property Name="UserName" Type="Edm.String"/>
       </EntityType>
     </Schema>
+
+    <!-- EntityContainer required by OData metadata validation -->
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service">
+      <EntityContainer Name="ServiceContainer">
+        <EntitySet Name="SessionService" EntityType="SessionService.SessionService"/>
+        <EntitySet Name="Sessions" EntityType="SessionCollection.v1_8_0.SessionCollection"/>
+      </EntityContainer>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

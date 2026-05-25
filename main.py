@@ -1390,14 +1390,32 @@ def session_service():
     elif request.method == 'PATCH':
         return sessionservice.update_session_service(request.json)
 
-# Allow retrieving and creating sessions
-@app.route('/redfish/v1/SessionService/Sessions', methods=['GET', 'POST', 'OPTIONS'], strict_slashes=False) 
+# Allow retrieving sessions (authentication required)
+@app.route('/redfish/v1/SessionService/Sessions', methods=['GET'], strict_slashes=False)
+@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
+@requires_authentication
+@requires_privilege("SessionCollection")
+def session_collection_get():
+    """Allow retrieving sessions (authenticated request required).
+
+    Returns:
+        GET: All sessions.
+    """
+    session_service_state = sessionservice.load_session_service()
+
+    if not session_service_state["ServiceEnabled"]:
+        return make_response({"error": "SessionService is disabled."}, 403)
+
+    return session.get_sessions()
+
+
+# Allow creating sessions
+@app.route('/redfish/v1/SessionService/Sessions', methods=['POST', 'OPTIONS'], strict_slashes=False) 
 @conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
 def session_collection():
     """Allow retrieving and creating sessions.
     
     Returns:
-        GET: All sessions.
         POST: Creates a new session.
         OPTIONS: Responds to CORS preflight requests.
     """
@@ -1416,9 +1434,7 @@ def session_collection():
     if not session_service_state["ServiceEnabled"]:
         return make_response({"error": "SessionService is disabled."}, 403)
 
-    if request.method == 'GET':
-        return session.get_sessions()
-    elif request.method == 'POST':
+    if request.method == 'POST':
         return session.create_session()
 
 # Support POST to Members property URI as equivalent to collection POST

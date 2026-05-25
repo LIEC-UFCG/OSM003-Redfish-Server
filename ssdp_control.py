@@ -31,6 +31,13 @@ def stop_ssdp():
     global ssdp_process
     if ssdp_process is not None and ssdp_process.is_alive():
         ssdp_process.terminate()
-        ssdp_process.join()
+        # Wait up to 2 seconds for graceful termination
+        ssdp_process.join(timeout=2)
+        # Force kill if still alive
+        if ssdp_process.is_alive():
+            ssdp_process.kill()
+            ssdp_process.join()
         ssdp_process = None
         print("SSDP finalizado.")
+    else:
+        print("SSDP process not running or already stopped.")

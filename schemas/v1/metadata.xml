@@ -49,8 +49,8 @@
     </Schema>
 
     <!-- Root Service schema with EntityContainer -->
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service.v1_0_0">
-      <EntityContainer Name="Service" m:IsDefaultEntityContainer="true" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service.v1_0_0" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
+      <EntityContainer Name="Service" m:IsDefaultEntityContainer="true">
         <EntitySet Name="SessionService" EntityType="SessionService.SessionService"/>
       </EntityContainer>
     </Schema>

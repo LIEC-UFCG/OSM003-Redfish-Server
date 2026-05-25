@@ -344,6 +344,10 @@ def accounts_collection():
                 severity="OK",
                 message_id="Audit.User.Create"
             )
+            # Add Location header to response
+            response = make_response(jsonify(new_account), status_code)
+            response.headers["Location"] = new_account["@odata.id"]
+            return response
         else:
             logging.warning(f"Failed to create user: {new_account}")
 

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from flask import jsonify, request, make_response
@@ -271,17 +272,33 @@ def delete_session(session_id):
         flask.Response: Success message or 403/404 error.
     """
     sessions = load_sessions()  # ensure we're reading from file
-    data = request.get_json(silent=True) or {}
-    username = data.get("UserName", "")
-    
+
     if session_id not in sessions:
         return jsonify({"error": "Session not found"}), 404
 
     session_data = sessions[session_id]
     request_token = request.headers.get("X-Auth-Token")
 
-    # Check if request token is the session owner
-    if session_data["Token"] != request_token:
+    requester_session = next(
+        (sess for sess in sessions.values() if sess.get("Token") == request_token),
+        None
+    )
+    requester_role = requester_session.get("RoleId") if requester_session else None
+
+    if requester_role is None:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Basic "):
+            try:
+                decoded_credentials = base64.b64decode(auth_header.split(" ", 1)[1]).decode("utf-8")
+                username, _ = decoded_credentials.split(":", 1)
+                accounts = load_accounts()
+                requester_user = next((acc for acc in accounts.values() if acc.get("UserName") == username), None)
+                requester_role = requester_user.get("RoleId") if requester_user else None
+            except Exception:
+                requester_role = None
+
+    # Allow deleting the session if the caller owns it or has an administrative role.
+    if session_data["Token"] != request_token and requester_role not in {"Administrator", "ConfigureManager"}:
         return jsonify({"error": "Access denied to delete this session"}), 403
 
     del sessions[session_id]
@@ -290,9 +307,9 @@ def delete_session(session_id):
         system_id=readings.machine_id(),
         logservice_id="Log1",
         message=f"User {session_data['UserName']} logged out",
-        user_name=username,
+        user_name=requester_session.get("UserName") if requester_session else session_data["UserName"],
         severity="OK",
         message_id="Auth.Logout.Success"
     )
-    return jsonify({"message": "Session deleted successfully"}), 200
+    return "", 204
 

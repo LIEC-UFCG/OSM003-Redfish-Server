@@ -108,7 +108,7 @@ def create_event_subscription():
 
     Returns:
         flask.Response: JSON response with the new subscription and status 201,
-                        or 400 error if any required field is missing.
+                        or 400 error if any required field is missing or invalid.
     """
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
@@ -117,6 +117,12 @@ def create_event_subscription():
     # Destination is mandatory for EventDestination creation.
     if "Destination" not in data:
         return make_response({"error": "Missing required field: Destination"}, 400)
+
+    # Validate Protocol if provided
+    valid_protocols = ["Redfish", "SNMP", "SNMPv3", "Syslog", "SMTP", "IPMI", "SSH", "WMI", "WinRM", "Kairos", "RMCP", "RMCPv2"]
+    protocol = data.get("Protocol", "Redfish")
+    if protocol not in valid_protocols:
+        return make_response({"error": f"Invalid Protocol: {protocol}. Valid protocols are: {', '.join(valid_protocols)}"}, 400)
 
     new_id = str(len(event_subscriptions) + 1)
     new_subscription = {
@@ -127,7 +133,7 @@ def create_event_subscription():
         "Name": "Event Subscription",
         "Context": data.get("Context", ""),
         "Destination": data["Destination"],
-        "Protocol": data.get("Protocol", "Redfish"),
+        "Protocol": protocol,
         "SubscriptionType": data.get("SubscriptionType", "RedfishEvent")
     }
 

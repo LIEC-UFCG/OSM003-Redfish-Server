@@ -48,11 +48,10 @@
       </EntityType>
     </Schema>
 
-    <!-- EntityContainer required by OData metadata validation -->
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service">
-      <EntityContainer Name="ServiceContainer">
+    <!-- Root Service schema with EntityContainer -->
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service.v1_0_0">
+      <EntityContainer Name="Service" m:IsDefaultEntityContainer="true" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
         <EntitySet Name="SessionService" EntityType="SessionService.SessionService"/>
-        <EntitySet Name="Sessions" EntityType="SessionCollection.v1_8_0.SessionCollection"/>
       </EntityContainer>
     </Schema>
   </edmx:DataServices>

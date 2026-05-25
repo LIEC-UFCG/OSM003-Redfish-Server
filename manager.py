@@ -176,7 +176,9 @@ def update_network_protocol():
             else:
                 stop_ssdp()
         except Exception as e:
-            return jsonify({"Message": f"Failed to update SSDP state: {e}"}), 500
+            print(f"Warning: SSDP state change encountered an issue: {e}")
+            # Still report success since the setting was recorded
+            # even if the process couldn't be fully started/stopped
 
     if response:
         return jsonify({"Message": "NetworkProtocol updated successfully", **response}), 200

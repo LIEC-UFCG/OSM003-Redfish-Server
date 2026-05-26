@@ -5,7 +5,6 @@ import uuid
 
 from config import FLASK_PORT
 from readings import machine_id, system_uuid, get_ssdp_enabled
-import readings
 
 
 SSDP_MULTICAST_ADDR = "239.255.255.250"
@@ -157,7 +156,7 @@ def discovery_SSDP():
         while True:
             # Stop responding if SSDP has been disabled via ManagerNetworkProtocol
             try:
-                if not readings.get_ssdp_enabled():
+                if not get_ssdp_enabled():
                     print("SSDP responder stopping because SSDP has been disabled in configuration.")
                     break
             except Exception:
@@ -165,22 +164,22 @@ def discovery_SSDP():
                 pass
 
             data, addr = sock.recvfrom(2048)
-        headers = _parse_ssdp_headers(data)
-        if not headers:
-            continue
+            headers = _parse_ssdp_headers(data)
+            if not headers:
+                continue
 
-        requested_st = headers.get("st", "")
-        if not _should_respond(requested_st):
-            continue
+            requested_st = headers.get("st", "")
+            if not _should_respond(requested_st):
+                continue
 
-        # Honor MX random delay recommendation for M-SEARCH responses.
-        try:
-            mx = int(headers.get("mx", "1"))
-        except ValueError:
-            mx = 1
-        mx = max(0, min(mx, 5))
-        if mx > 0:
-            time.sleep(random.uniform(0, mx))
+            # Honor MX random delay recommendation for M-SEARCH responses.
+            try:
+                mx = int(headers.get("mx", "1"))
+            except ValueError:
+                mx = 1
+            mx = max(0, min(mx, 5))
+            if mx > 0:
+                time.sleep(random.uniform(0, mx))
 
             response = _build_msearch_response(local_ip, requested_st)
             sock.sendto(response, addr)

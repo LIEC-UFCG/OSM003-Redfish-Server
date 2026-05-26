@@ -263,16 +263,22 @@ def update_account(account_id):
         if not isinstance(data, dict):
             return {"error": "Invalid JSON payload"}, 400
 
-        # Check for duplicate UserName
+        # Track which properties were applied and which were unsupported
+        applied = []
+        unsupported = []
+
+        # Check for UserName change
         if "UserName" in data:
             if any(acc["UserName"].lower() == data["UserName"].lower() and acc["Id"] != account_id for acc in accounts.values()):
                 return {"error": "UserName already exists"}, 400
             accounts[account_id]["UserName"] = data["UserName"]
+            applied.append("UserName")
 
         # Update allowed boolean fields
         for key in ["Enabled", "Locked", "PasswordChangeRequired"]:
             if key in data:
                 accounts[account_id][key] = data[key]
+                applied.append(key)
 
         # Update password
         if "Password" in data:
@@ -283,9 +289,25 @@ def update_account(account_id):
             hashed = bcrypt.hashpw(data["Password"].encode(), bcrypt.gensalt()).decode()
             accounts[account_id]["Password"] = hashed
             accounts[account_id]["PasswordChangeRequired"] = False
+            applied.append("Password")
+
+        # Determine unsupported properties from the request
+        for key in data.keys():
+            if key not in applied:
+                # We consider known but unhandled fields (e.g., RoleId) as unsupported for PATCH
+                unsupported.append(key)
+
+        # If nothing was applied, return 400 with details about non-updatable properties
+        if not applied:
+            return {
+                "error": "No updatable properties in request",
+                "extendedInfo": {
+                    "NonUpdatableProperties": unsupported
+                }
+            }, 400
 
         save_accounts(accounts)
-        return {"message": "Account updated successfully"}, 200
+        return {"message": "Account updated successfully", "UpdatedProperties": applied}, 200
 
     except Exception as e:
         logging.error(f"Error updating account: {e}")

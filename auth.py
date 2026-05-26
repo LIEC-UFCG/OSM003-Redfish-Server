@@ -19,6 +19,34 @@ PRIVILEGE_REGISTRY_FILE = "privilege_registry.json"
 SESSIONS_FILE = "sessions.json"
 ACCOUNTS_FILE = "accounts.json"
 
+
+def _password_change_required_response():
+    return make_response({
+        "error": "Password change required",
+        "@Message.ExtendedInfo": [
+            {
+                "MessageId": "Base.1.18.0.PasswordChangeRequired",
+                "Message": "The account requires a password change before most operations are allowed."
+            }
+        ]
+    }, 403)
+
+
+def _allows_password_change_required_user(path, method, request_data=None):
+    normalized_path = path.rstrip("/")
+    if normalized_path.startswith("/redfish/v1/AccountService/Accounts/"):
+        if method == "GET":
+            return True
+        if method == "PATCH" and isinstance(request_data, dict):
+            allowed_keys = {"Password"}
+            return bool(request_data) and set(request_data.keys()).issubset(allowed_keys)
+    if normalized_path in {
+        "/redfish/v1/SessionService/Sessions",
+        "/redfish/v1/SessionService/Sessions/Members",
+    } and method == "POST":
+        return True
+    return False
+
 def load_privilege_registry():
     """Load privilege_registry.json file and return content.
     
@@ -133,6 +161,8 @@ def requires_authentication(func):
                             return make_response({"error": "Account locked"}, 401)
 
                     if user.get("PasswordChangeRequired", False):
+                        if _allows_password_change_required_user(request.path, request.method, request.get_json(silent=True)):
+                            return func(*args, **kwargs)
                         add_auth_log_entry(
                             system_id=readings.machine_id(),
                             logservice_id="Log1",
@@ -141,7 +171,7 @@ def requires_authentication(func):
                             severity="Warning",
                             message_id="Auth.Login.Failure"
                         )
-                        return make_response({"error": "Password must be changed"}, 401)
+                        return _password_change_required_response()
                     
                     # Automatic counter reset if enabled
                     if reset_enabled and now - user["_last_failed_attempt"] > reset_after:
@@ -192,6 +222,8 @@ def requires_authentication(func):
 
 
                     if user.get("PasswordChangeRequired", False):
+                        if _allows_password_change_required_user(request.path, request.method, request.get_json(silent=True)):
+                            return func(*args, **kwargs)
                         add_auth_log_entry(
                             system_id=readings.machine_id(),
                             logservice_id="Log1",
@@ -200,7 +232,7 @@ def requires_authentication(func):
                             severity="Warning",
                             message_id="Auth.Login.Failure"
                         )
-                        return make_response({"error": "Password must be changed"}, 401)
+                        return _password_change_required_response()
 
                     # Automatic counter reset if enabled
                     if reset_enabled and now - user["_last_failed_attempt"] > reset_after:

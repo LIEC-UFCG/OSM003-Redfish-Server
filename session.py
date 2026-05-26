@@ -191,6 +191,14 @@ def create_session():
         "ExpirationTime": _to_redfish_datetime(expiration_time)
     }
 
+    if user.get("PasswordChangeRequired", False):
+        response_body["@Message.ExtendedInfo"] = [
+            {
+                "MessageId": "Base.1.18.0.PasswordChangeRequired",
+                "Message": "The account requires a password change before most operations are allowed."
+            }
+        ]
+
     response = make_response(response_body, 201)
     response.headers["X-Auth-Token"] = token
     response.headers["Location"] = session_uri

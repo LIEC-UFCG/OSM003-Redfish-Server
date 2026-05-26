@@ -4,7 +4,8 @@ import time
 import uuid
 
 from config import FLASK_PORT
-from readings import machine_id, system_uuid
+from readings import machine_id, system_uuid, get_ssdp_enabled
+import readings
 
 
 SSDP_MULTICAST_ADDR = "239.255.255.250"
@@ -152,8 +153,18 @@ def discovery_SSDP():
 
     print(f"SSDP responder started on {SSDP_MULTICAST_ADDR}:{SSDP_PORT} (service root https://{local_ip}:{FLASK_PORT}/redfish/v1/)")
 
-    while True:
-        data, addr = sock.recvfrom(2048)
+    try:
+        while True:
+            # Stop responding if SSDP has been disabled via ManagerNetworkProtocol
+            try:
+                if not readings.get_ssdp_enabled():
+                    print("SSDP responder stopping because SSDP has been disabled in configuration.")
+                    break
+            except Exception:
+                # If readings module is unavailable for some reason, continue as before
+                pass
+
+            data, addr = sock.recvfrom(2048)
         headers = _parse_ssdp_headers(data)
         if not headers:
             continue
@@ -171,5 +182,16 @@ def discovery_SSDP():
         if mx > 0:
             time.sleep(random.uniform(0, mx))
 
-        response = _build_msearch_response(local_ip, requested_st)
-        sock.sendto(response, addr)
+            response = _build_msearch_response(local_ip, requested_st)
+            sock.sendto(response, addr)
+    finally:
+        try:
+            # Leave multicast group and close socket cleanly
+            membership = socket.inet_aton(SSDP_MULTICAST_ADDR) + socket.inet_aton("0.0.0.0")
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, membership)
+        except Exception:
+            pass
+        try:
+            sock.close()
+        except Exception:
+            pass

@@ -2,19 +2,41 @@
   <!-- Referências externas -->
   <edmx:Reference Uri="/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
-</edmx:Reference>
-<edmx:Reference Uri="/schemas/v1/Resource_v1.xml">
+  </edmx:Reference>
+  <edmx:Reference Uri="/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource" Alias="Resource"/>
-</edmx:Reference>
-<edmx:Reference Uri="/schemas/v1/SessionCollection_v1.xml">
+  </edmx:Reference>
+  <edmx:Reference Uri="/schemas/v1/SessionCollection_v1.xml">
     <edmx:Include Namespace="SessionCollection" Alias="SessionCollection"/>
-</edmx:Reference>
-<edmx:Reference Uri="/schemas/v1/Session_v1.xml">
+  </edmx:Reference>
+  <edmx:Reference Uri="/schemas/v1/Session_v1.xml">
     <edmx:Include Namespace="Session" Alias="Session"/>
-</edmx:Reference>
-<edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/LogEntryCollection_v1.xml">
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/LogEntryCollection_v1.xml">
     <edmx:Include Namespace="LogEntryCollection" Alias="LogEntryCollection"/>
-</edmx:Reference>
+  </edmx:Reference>
+  <!-- Standard Redfish schema references used by the Service EntityContainer -->
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/AccountService_v1.xml">
+    <edmx:Include Namespace="AccountService"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Manager_v1.xml">
+    <edmx:Include Namespace="Manager"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Chassis_v1.xml">
+    <edmx:Include Namespace="Chassis"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/ComputerSystem_v1.xml">
+    <edmx:Include Namespace="ComputerSystem"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/EventService_v1.xml">
+    <edmx:Include Namespace="EventService"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/UpdateService_v1.xml">
+    <edmx:Include Namespace="UpdateService"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/JsonSchemas_v1.xml">
+    <edmx:Include Namespace="JsonSchemas"/>
+  </edmx:Reference>
 
 
   <!-- Serviços de Dados -->
@@ -48,10 +70,18 @@
       </EntityType>
     </Schema>
 
-    <!-- Root Service schema with EntityContainer -->
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service.v1_0_0" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
-      <EntityContainer Name="Service" m:IsDefaultEntityContainer="true">
+    <!-- Root Service schema with EntityContainer (defines top-level resources) -->
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
+      <EntityContainer Name="EntityContainer" m:IsDefaultEntityContainer="true">
+        <EntitySet Name="ServiceRoot" EntityType="Resource.Resource"/>
+        <EntitySet Name="AccountService" EntityType="AccountService.AccountService"/>
+        <EntitySet Name="Managers" EntityType="Manager.Manager"/>
+        <EntitySet Name="Chassis" EntityType="Chassis.Chassis"/>
+        <EntitySet Name="Systems" EntityType="ComputerSystem.ComputerSystem"/>
+        <EntitySet Name="EventService" EntityType="EventService.EventService"/>
+        <EntitySet Name="UpdateService" EntityType="UpdateService.UpdateService"/>
         <EntitySet Name="SessionService" EntityType="SessionService.SessionService"/>
+        <EntitySet Name="JsonSchemas" EntityType="JsonSchemas.JsonSchemaFile"/>
       </EntityContainer>
     </Schema>
   </edmx:DataServices>

@@ -61,7 +61,6 @@ def load_accounts():
             return {}
     return {}
 
-accounts = load_accounts()
 
 
 def _to_redfish_datetime(value):
@@ -102,6 +101,9 @@ def create_session():
     data = request.json
     username = data.get("UserName")
     password = data.get("Password")
+
+    # Reload accounts so authentication always uses the current account state.
+    accounts = load_accounts()
 
     # Check if user exists and password is valid
     user = next((acc for acc in accounts.values() if acc["UserName"] == username), None)

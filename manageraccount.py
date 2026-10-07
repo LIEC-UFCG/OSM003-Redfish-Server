@@ -113,7 +113,6 @@ def save_accounts(accounts):
     with open(ACCOUNTS_FILE, "w") as file:
         json.dump(accounts, file, indent=4)
 
-accounts = load_accounts()
 
 def verify_password(hashed_password, user_password):
     """Check if provided password matches stored hash.
@@ -137,6 +136,8 @@ def get_account(account_id):
     Returns:
         flask.Response: JSON with account details or 404 error if not found.
     """
+    accounts = load_accounts()
+
     if account_id in accounts:
         account_data = accounts[account_id]
         response = {
@@ -175,7 +176,6 @@ def create_account():
                - 500 for unexpected internal errors.
     """
     try:
-        global accounts
 
         accounts = load_accounts()
         data = request.json or {}
@@ -248,6 +248,7 @@ def update_account(account_id):
         tuple: (dict, status_code)
     """
     try:
+        accounts = load_accounts()
         if account_id not in accounts:
             return {"error": "Account not found"}, 404
 
@@ -288,6 +289,7 @@ def delete_account(account_id):
     """Remove a ManagerAccount.
     """
     try:
+        accounts = load_accounts()
         if account_id not in accounts:
             return {"error": "Account not found"}, 404
 
@@ -308,6 +310,8 @@ def get_accounts():
     Returns:
         flask.Response: JSON with account collection.
     """
+    accounts = load_accounts()
+
     response = {
         #"@odata.context": "/redfish/v1/$metadata#ManagerAccountCollection.ManagerAccountCollection",
         "@odata.id": "/redfish/v1/AccountService/Accounts",
@@ -319,9 +323,5 @@ def get_accounts():
     return jsonify(response)
 
 
-# Initialize account list
-accounts = load_accounts()
-
-# If file didn't exist, save default with encrypted passwords
 if os.environ.get("SPHINX_BUILD") != "1" and not os.path.exists(ACCOUNTS_FILE):
-    save_accounts(accounts)
+    save_accounts(load_accounts())

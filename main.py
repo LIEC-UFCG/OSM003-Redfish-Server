@@ -5,10 +5,8 @@ import json
 import readings
 import redfish_root
 import sessionservice
-import chassis
 import computersystem
 import ethernetinterfaces
-import accountservice
 import distributedcontrolnode
 import eventservice
 import logservice
@@ -16,8 +14,6 @@ import manager
 import operatingsystem
 import session
 import updateservice
-import manageraccount
-import roles
 import eventdestination
 import jsonschemas
 import os
@@ -28,7 +24,7 @@ import atexit
 import time
 from session import load_sessions, save_sessions
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from extensions import limiter, conditional_limit
 from config import FLASK_PORT, FLASK_IP, CERT_FILE, KEY_FILE, ENABLE_RATE_LIMIT, RATE_LIMIT
 import subprocess
 from gerar_certificado_dinamico import obter_ip_local, gerar_certificados, certificados_estao_atualizados, registrar_certificado_no_sistema
@@ -37,7 +33,12 @@ from logservice import add_audit_log_entry, add_event_log_entry
 from logservice import AUDIT_LOG_FILE, AUTH_LOG_FILE, EVENT_LOG_FILE, ERROR_LOG_FILE
 import ssdp_control
 
+# Routes
+from routes.accountservice import account_service_bp
+from routes.chassis import chassis_bp
+
 from flask import current_app
+# TODO: onde isso é usado?
 from flask_limiter.errors import RateLimitExceeded
 from flask import jsonify
 import logging
@@ -52,51 +53,7 @@ if not os.path.exists(LOG_DIR):
     except Exception as e:
         print(f"Error creating logs directory: {e}")
 
-# Initialize Flask application
-app = Flask(__name__) 
-Talisman(app)
-
-
-
-# Function to get the authentication token from the request header
-# If the token is not present, uses the remote address of the client
-def get_token():
-    """
-    Retrieve authentication token from request header.
-
-    If token is not present, use the remote client address instead.
-
-    Returns:
-        str: Authentication token or client IP address.
-    """
-    return request.headers.get("X-Auth-Token") or get_remote_address()
-
-
-
-
-# Configure rate limiter
-limiter = Limiter(
-    key_func=get_token,
-    app=app,
-    default_limits=[],
-    storage_uri=RATE_LIMIT_STORAGE_URI if RATE_LIMIT_STORAGE_URI else "memory://"
-)
-
-def conditional_limit(limit):
-    def decorator(func):
-        if ENABLE_RATE_LIMIT:
-            return limiter.limit(limit)(func)
-        return func
-    return decorator
-
-@app.errorhandler(RateLimitExceeded)
-def ratelimit_handler(e):
-    current_app.logger.warning("Rate limit exceeded: %s", e)
-    return jsonify(error="Too many requests"), 429
-
 # Middleware to format JSON responses with indentation
-
-@app.after_request
 def pretty_json(response):
     """Middleware to format JSON responses with indentation.
     
@@ -122,8 +79,74 @@ def pretty_json(response):
             pass  # Ignore errors and keep original response
     return response
 
-# Configure to prevent ASCII character escaping in JSON output
-app.config['JSON_AS_ASCII'] = False 
+# CORS configuration to allow requests from a specific domain
+def add_cors_headers(response):
+    """Add CORS headers to HTTP response.
+    
+    Args:
+        response: Flask response object.
+    
+    Returns:
+        Response object with CORS headers added.
+    """
+    response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'  # or '*' if testing
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
+
+def log_all_requests(response):
+    """Log all HTTP requests to audit log.
+    
+    Records successful and error requests with user information to audit log.
+    
+    Args:
+        response: Flask response object.
+    
+    Returns:
+        Flask response object (unchanged).
+    """
+    try:
+        username = get_authenticated_username()
+        endpoint = request.path
+        method = request.method
+        status = response.status_code
+        if status != 404:
+            add_audit_log_entry(
+                system_id=readings.machine_id(),
+                logservice_id="Log1",
+                message=f"{method} {endpoint} - Status {status}",
+                user_name=username,
+                severity="OK" if status < 400 else "Warning",
+                message_id=f"HTTP.{method}.{status}"
+            )
+    except Exception:
+        pass
+    return response 
+
+def create_app():
+    # Initialize Flask application
+    app = Flask(__name__) 
+
+    # Configure to prevent ASCII character escaping in JSON output
+    app.config['JSON_AS_ASCII'] = False 
+
+    Talisman(app)
+    limiter.init_app(app)
+
+    app.after_request(pretty_json)
+    app.after_request(add_cors_headers)
+    app.after_request(log_all_requests)
+
+    app.register_blueprint(account_service_bp)
+    app.register_blueprint(chassis_bp)
+    
+    return app
+
+app = create_app()
+
+@app.errorhandler(RateLimitExceeded)
+def ratelimit_handler(e):
+    current_app.logger.warning("Rate limit exceeded: %s", e)
+    return jsonify(error="Too many requests"), 429
 
 # Return a welcome message
 @app.route('/')
@@ -242,300 +265,6 @@ def odata():
         "value": []  # Minimum value, can be expanded as needed
     }
     return jsonify(response), 200
-
-# Fetch system ID from readings module
-system_id = readings.machine_id()
-
-# Route for /redfish/v1/AccountService/ endpoint, allows GET and PATCH methods
-@app.route('/redfish/v1/AccountService', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("AccountService")
-def account_service():
-    """
-    Route for /redfish/v1/AccountService/ endpoint.
-
-    Allow GET to retrieve or PATCH to update AccountService information.
-
-    Returns:
-        flask.Response: 
-            - GET: Returns AccountService data.
-            - PATCH: Updates AccountService state and returns success or error message.
-    """
-    if request.method == 'GET':
-        return accountservice.get_account_service()
-    elif request.method == 'PATCH':
-        return accountservice.update_account_service(request.json)
-
-
-# Route for /redfish/v1/AccountService/Accounts endpoint, allows GET and POST methods
-@app.route('/redfish/v1/AccountService/Accounts', methods=['GET', 'POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("ManagerAccountCollection")
-def accounts_collection():
-    """
-    Route for /redfish/v1/AccountService/Accounts endpoint.
-
-    Allow GET to retrieve account list or POST to create a new account.
-
-    Returns:
-        flask.Response:
-            - GET: Returns list of accounts.
-            - POST: Returns newly created account.
-    """
-    if request.method == 'GET':
-        accounts = manageraccount.get_accounts()
-        return accounts, 200
-    elif request.method == 'POST':
-        new_account, status_code = manageraccount.create_account()
-
-        if status_code == 201 and "UserName" in new_account:
-            add_audit_log_entry(
-                system_id=system_id,
-                logservice_id="Log1",
-                message=f"User {new_account['UserName']} created",
-                user_name=request.headers.get("X-Auth-Token", "admin"),
-                severity="OK",
-                message_id="Audit.User.Create"
-            )
-        else:
-            logging.warning(f"Failed to create user: {new_account}")
-
-        return new_account, status_code
-
-# Route for /redfish/v1/AccountService/Accounts/<account_id> endpoint, allows GET, PATCH and DELETE methods
-@app.route('/redfish/v1/AccountService/Accounts/<account_id>', methods=['GET', 'PATCH', 'DELETE'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("ManagerAccount")
-def account_detail(account_id):
-    """
-    Route for /redfish/v1/AccountService/Accounts/<account_id> endpoint.
-
-    Allow GET to retrieve, PATCH to update, or DELETE to remove a specific account.
-
-    Args:
-        account_id (str): Account ID.
-
-    Returns:
-        flask.Response:
-            - GET: Returns account data.
-            - PATCH: Updates account.
-            - DELETE: Removes account.
-    """
-    if request.method == 'GET':
-        return manageraccount.get_account(account_id)
-    elif request.method == 'PATCH':
-        add_audit_log_entry(
-            system_id=system_id,
-            logservice_id="Log1",
-            message=f"User {account_id} updated",
-            user_name=request.headers.get("X-Auth-Token", "admin"),
-            severity="OK",
-            message_id="Audit.User.Update"
-        )
-        return manageraccount.update_account(account_id)
-    elif request.method == 'DELETE':
-        add_audit_log_entry(
-            system_id=system_id,
-            logservice_id="Log1",
-            message=f"User {account_id} deleted",
-            user_name=request.headers.get("X-Auth-Token", "admin"),
-            severity="OK",
-            message_id="Audit.User.Delete"
-        )
-        return manageraccount.delete_account(account_id)
-
-# Route for /redfish/v1/AccountService/Roles endpoint, returns available roles
-@app.route('/redfish/v1/AccountService/Roles', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("RoleCollection")
-def roles_collection():
-    """
-    Route for /redfish/v1/AccountService/Roles endpoint.
-
-    Returns list of available roles (roles).
-
-    Returns:
-        flask.Response: List of available roles.
-    """
-    return roles.get_roles()
-
-# Route for /redfish/v1/AccountService/Roles/<role_id> endpoint, returns details of specific role
-@app.route('/redfish/v1/AccountService/Roles/<role_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("Role")
-def role_detail(role_id):
-    """
-    Route for /redfish/v1/AccountService/Roles/<role_id> endpoint.
-
-    Returns details of a specific role (role).
-
-    Args:
-        role_id (str): Role ID.
-
-    Returns:
-        flask.Response: Details of requested role.
-    """
-    return roles.get_role(role_id)
-
-# Route for /redfish/v1/Chassis/, returns information about chassis
-@app.route('/redfish/v1/Chassis', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                     # Limit to 1 request per second
-@requires_authentication
-@requires_privilege("ChassisCollection")
-def get_chassis():
-    """
-    Route for /redfish/v1/Chassis/ endpoint.
-
-    Returns information about all available chassis in the system.
-
-    Returns:
-        flask.Response: JSON with chassis collection in Redfish format.
-    """
-    return chassis.get_chassis()
-
-# Load AssetTag when starting the server
-readings.load_asset_tag()
-
-# Route for /redfish/v1/Chassis/<machine_id> endpoint, allows GET and PATCH methods
-@app.route('/redfish/v1/Chassis/<system_id>', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("Chassis")
-def get_chassis_id(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>.
-    
-    Allow GET to retrieve or PATCH to update detailed chassis information identified by machine_id.
-    
-    Returns:
-        flask.Response:
-            - GET: Returns detailed chassis information.
-            - PATCH: Updates chassis AssetTag and returns success or error message.
-    """
-    if request.method == 'GET':
-        return chassis.get_chassis_id(system_id)
-    elif request.method == 'PATCH':
-        data = request.get_json()
-        if "AssetTag" in data:
-            readings.set_asset_tag(data["AssetTag"]) # Update AssetTag
-            return jsonify({
-                "Message": "AssetTag updated successfully!",
-                "AssetTag": data["AssetTag"]
-            }), 200
-        else:
-            return jsonify({"Message": "AssetTag field not provided"}), 400
-
-# Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem endpoint, returns thermal information
-@app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("ThermalSubsystem")
-def get_chassis_id_thermalSubsystem(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem.
-    
-    Returns thermal subsystem information for the chassis.
-    
-    Returns:
-        flask.Response: JSON with thermal subsystem information.
-    """
-    return chassis.get_thermalSubsystem(system_id)
-
-# Route for /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics endpoint, allows GET and PATCH methods
-@app.route('/redfish/v1/Chassis/<system_id>/ThermalSubsystem/ThermalMetrics', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("ThermalMetrics")
-def get_chassis_id_thermalMetrics(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>/ThermalSubsystem/ThermalMetrics.
-    
-    Returns thermal metrics for the chassis.
-    
-    Returns:
-        flask.Response: JSON with chassis thermal metrics.
-    """
-    return chassis.get_thermalMetrics(system_id)
-
-# Route for /redfish/v1/Chassis/<machine_id>/PowerSubsystem endpoint, returns power information
-@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("PowerSubsystem")
-def get_chassis_id_powerSubsystem(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>/PowerSubsystem.
-    
-    Returns power subsystem information for the chassis.
-    
-    Returns:
-        flask.Response: JSON with power subsystem information.
-    """
-    return chassis.get_powerSubsystem(system_id)
-
-
-# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies endpoint
-@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("PowerSubsystem")
-def get_chassis_id_powerSupplies(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies.
-
-    Returns power supply collection information for the chassis.
-
-    Returns:
-        flask.Response: JSON with power supply collection information.
-    """
-    return chassis.get_power_supplies(system_id)
-
-
-# Route for /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id> endpoint
-@app.route('/redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("PowerSubsystem")
-def get_chassis_id_powerSupply(system_id, psu_id):
-    """Route for endpoint /redfish/v1/Chassis/<system_id>/PowerSubsystem/PowerSupplies/<psu_id>.
-
-    Returns one power supply resource for the chassis.
-
-    Returns:
-        flask.Response: JSON with power supply data.
-    """
-    return chassis.get_power_supply(system_id, psu_id)
-
-# Route for /redfish/v1/Chassis/<machine_id>/Sensors endpoint, returns sensor information
-@app.route('/redfish/v1/Chassis/<system_id>/Sensors', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("Sensor")
-def get_chassis_id_sensors(system_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>/Sensors.
-    
-    Returns sensor information for the chassis.
-    
-    Returns:
-        flask.Response: JSON with readings from chassis sensors.
-    """
-    return chassis.get_sensors(system_id)
-
-# Route for /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id> endpoint, returns one sensor
-@app.route('/redfish/v1/Chassis/<system_id>/Sensors/<sensor_id>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("Sensor")
-def get_chassis_id_sensor(system_id, sensor_id):
-    """Route for endpoint /redfish/v1/Chassis/<machine_id>/Sensors/<sensor_id>.
-
-    Returns details for a single chassis sensor resource.
-
-    Returns:
-        flask.Response: JSON with sensor data.
-    """
-    return chassis.get_sensor(sensor_id, system_id)
-#-----------------------------------------------------------------------------------------------------------------------
 
 # Route for /redfish/v1/JsonSchemas/ endpoint
 # Returns a list of JSON schemas available for the API
@@ -1475,22 +1204,6 @@ def iniciar_servidor_flask():
 
     # Start Flask server with HTTPS
     app.run(host=FLASK_IP, port=FLASK_PORT, ssl_context=(CERT_FILE, KEY_FILE))
-    
-
-# CORS configuration to allow requests from a specific domain
-@app.after_request
-def add_cors_headers(response):
-    """Add CORS headers to HTTP response.
-    
-    Args:
-        response: Flask response object.
-    
-    Returns:
-        Response object with CORS headers added.
-    """
-    response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'  # or '*' if testing
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
 
 def get_authenticated_username():
     """Retrieve the authenticated username from session token or Basic auth header.
@@ -1517,36 +1230,6 @@ def get_authenticated_username():
         except Exception:
             pass
     return "anonymous"
-
-@app.after_request
-def log_all_requests(response):
-    """Log all HTTP requests to audit log.
-    
-    Records successful and error requests with user information to audit log.
-    
-    Args:
-        response: Flask response object.
-    
-    Returns:
-        Flask response object (unchanged).
-    """
-    try:
-        username = get_authenticated_username()
-        endpoint = request.path
-        method = request.method
-        status = response.status_code
-        if status != 404:
-            add_audit_log_entry(
-                system_id=readings.machine_id(),
-                logservice_id="Log1",
-                message=f"{method} {endpoint} - Status {status}",
-                user_name=username,
-                severity="OK" if status < 400 else "Warning",
-                message_id=f"HTTP.{method}.{status}"
-            )
-    except Exception:
-        pass
-    return response 
 
 # Function to generate interactive SSL certificates
 # Requests the user for Common Name (CN) and generates necessary certificates
@@ -1637,5 +1320,3 @@ if __name__ == '__main__':
 
     # Wait for processes to terminate
     processo_flask.join() 
-
-

@@ -1,17 +1,12 @@
 # Required imports for Flask server and additional functionality
-from flask import Flask, abort, jsonify, request, Response, make_response, send_from_directory, redirect
+from flask import Flask, abort, jsonify, request, Response, send_from_directory, redirect
 from multiprocessing import Process
 import json
 import readings
 import redfish_root
-import sessionservice
-import distributedcontrolnode
-import eventservice
 import logservice
 import manager
-import session
 import updateservice
-import eventdestination
 import os
 from auth import requires_authentication, requires_privilege, get_authenticated_username
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -28,12 +23,16 @@ from logservice import add_audit_log_entry
 import ssdp_control
 
 # Routes
+from routes.basic import basic_bp
 from routes.accountservice import account_service_bp
 from routes.chassis import chassis_bp
 from routes.jsonschemas import jsonschemas_bp
 from routes.computersystems import computersystems_bp
 from routes.systems_logservices import systems_logservices_bp
 from routes.ethernetinterfaces import ethernetinterfaces_bp
+from routes.eventservice import eventservice_bp
+from routes.dcn import dcn_bp
+from routes.sessionservice import sessionservice_bp
 
 from flask import current_app
 # TODO: onde isso é usado?
@@ -134,13 +133,17 @@ def create_app():
     app.after_request(add_cors_headers)
     app.after_request(log_all_requests)
 
+    app.register_blueprint(basic_bp)
     app.register_blueprint(account_service_bp)
     app.register_blueprint(chassis_bp)
     app.register_blueprint(jsonschemas_bp)
     app.register_blueprint(computersystems_bp)
     app.register_blueprint(systems_logservices_bp)
     app.register_blueprint(ethernetinterfaces_bp)
-    
+    app.register_blueprint(eventservice_bp)
+    app.register_blueprint(dcn_bp)
+    app.register_blueprint(sessionservice_bp)
+
     return app
 
 app = create_app()
@@ -149,229 +152,6 @@ app = create_app()
 def ratelimit_handler(e):
     current_app.logger.warning("Rate limit exceeded: %s", e)
     return jsonify(error="Too many requests"), 429
-
-# Return a welcome message
-@app.route('/')
-@conditional_limit(RATE_LIMIT)
-def index():
-    """
-    Home route for Flask application.
-
-    Display a welcome message indicating that the Redfish service is active.
-
-    Returns:
-        str: Welcome message.
-    """
-    return 'Bem Vindo a RedfishPi'
-
-# Route for /redfish endpoint, returns the root path
-@app.route('/redfish', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)
-def redfish():
-    """
-    Route for /redfish endpoint.
-
-    Returns:
-        tuple: Dictionary with path to API v1 and HTTP 200 status code.
-    """
-    return {
-        "v1": "/redfish/v1/"
-    }, 200
-
-# Route for /redfish/v1/ endpoint, returns Redfish root data
-@app.route('/redfish/v1', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)
-def get_redfish_root():
-    """
-    Root API route.
-
-    Returns:
-        flask.Response: Formatted JSON response with Redfish root data.
-    """
-    redfish_data = redfish_root.get_redfish_v1()
-    return Response(
-        json.dumps(redfish_data, indent=2, ensure_ascii=False), # Format JSON
-        mimetype='application/json'                             # Define content type as JSON
-    )
-
-# Route for unsupported HTTP methods on /redfish/v1/ endpoint
-@app.route('/redfish/v1', methods=['POST', 'PATCH', 'DELETE', 'FAKEMETHODFORTEST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)  
-def redfish_root_unsupported_methods():
-    """
-    Handle unsupported HTTP methods on /redfish/v1/ endpoint.
-
-    Returns:
-        flask.Response: Error message with HTTP 405 status code.
-    """
-    return jsonify({"error": "Method not allowed"}), 405
-
-# Route for /redfish/v1/$metadata, returns metadata file
-@app.route('/redfish/v1/$metadata', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT) 
-def metadata():
-    """Route for /redfish/v1/$metadata, returns metadata file.
-    
-    Returns:
-        tuple: XML file content and header or error message and 404 code.
-    """
-    try:
-        with open('schemas/v1/metadata.xml', 'r') as file:
-            return file.read(), 200, {'Content-Type': 'application/xml'}
-    except FileNotFoundError:
-        return jsonify({"error": "$metadata file not found"}), 404
-
-# Route to serve schema files from schemas/v1 directory
-@app.route('/schemas/v1/<path:filename>', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)  
-def serve_schemas_v1(filename):
-    """
-    Serve schema files from schemas/v1 directory.
-
-    Args:
-        filename (str): Name of the file to retrieve from the directory.
-
-    Returns:
-        flask.Response: Schema file or 404 error message.
-    """
-    try:
-        return send_from_directory('schemas/v1', filename)
-    except FileNotFoundError:
-        return jsonify({"error": f"Schema file '{filename}' not found"}), 404
-
-# Route to serve the application favicon
-@app.route('/favicon.ico', strict_slashes=False)
-@conditional_limit(RATE_LIMIT) 
-def favicon():
-    """
-    Route to serve the application favicon.
-
-    Returns:
-        flask.Response: favicon.ico file.
-    """
-    return send_from_directory(os.path.join(app.root_path, 'static'),
-                          'favicon.ico',mimetype='image/vnd.microsoft.icon')
-
-# Route for /redfish/v1/odata endpoint, returns basic OData information
-@app.route('/redfish/v1/odata', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)  
-def odata():
-    """
-    Route for /redfish/v1/odata endpoint, returns basic OData information.
-
-    Returns:
-        flask.Response: JSON with OData context and default value.
-    """
-    response = {
-        "@odata.context": "/redfish/v1/$metadata",
-        "value": []  # Minimum value, can be expanded as needed
-    }
-    return jsonify(response), 200
-
-# Route to retrieve DCN information
-@app.route('/redfish/v1/DistributedControlNode', methods=['GET'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("ComputerSystem")
-def distributed_control_node_endpoint():
-    """Route to retrieve DCN information using GET method. As an O-PAS node type, can be "DCN" or other.
-    
-    Returns:
-        JSON with information about the DCN.
-    """
-    return distributedcontrolnode.get_dcn()
-
-# Allow retrieving and updating event service information
-@app.route('/redfish/v1/EventService', methods=['GET', 'PATCH'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("EventService")
-def event_service():
-    """Allow retrieving and updating event service information.
-    
-    Returns:
-        GET: Event service JSON.
-        PATCH: Updates event service settings and returns success or error message.
-    """
-    if request.method == 'GET':
-        return Response( # Get event service
-            json.dumps(eventservice.get_event_service(), indent=2), # Format JSON
-            mimetype='application/json'
-        )
-    elif request.method == 'PATCH': # Update event service
-        # Verify if event service is enabled
-        data = request.get_json()
-        response = {}
-        # Update event service fields according to received data
-        if "DeliveryRetryAttempts" in data:
-            readings.set_delivery_retry_attempts(data["DeliveryRetryAttempts"])
-            response["DeliveryRetryAttempts"] = data["DeliveryRetryAttempts"]
-
-        if "DeliveryRetryIntervalSeconds" in data:
-            readings.set_delivery_retry_interval_seconds(data["DeliveryRetryIntervalSeconds"])
-            response["DeliveryRetryIntervalSeconds"] = data["DeliveryRetryIntervalSeconds"]
-
-        if "ServiceEnabled" in data:
-            readings.set_service_enabled(data["ServiceEnabled"])
-            response["ServiceEnabled"] = data["ServiceEnabled"]
-
-        if response:
-            return jsonify({
-                "Message": "Settings updated successfully!",
-                **response
-            }), 200
-        else:
-            return jsonify({"Message": "No valid fields were provided"}), 400
-
-# Allow retrieving and creating event subscriptions
-@app.route('/redfish/v1/EventService/Subscriptions', methods=['GET', 'POST'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("EventDestinationCollection")
-def event_subscriptions_collection():
-    """Allow retrieving and creating event subscriptions.
-    
-    Returns:
-        GET: All event subscriptions.
-        POST: Creates a new event subscription.
-    """
-    if request.method == 'GET':
-        return eventdestination.get_event_subscriptions()
-    elif request.method == 'POST':
-        return eventdestination.create_event_subscription()
-
-# Allow retrieving and deleting event subscriptions
-@app.route('/redfish/v1/EventService/Subscriptions/<subscription_id>', methods=['GET', 'DELETE'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("EventDestination")
-def event_subscription_detail(subscription_id):
-    """Allow retrieving and deleting a specific event subscription.
-    
-    Args:
-        subscription_id (str): Event subscription ID.
-    
-    Returns:
-        GET: Subscription details.
-        DELETE: Deletes the subscription.
-    """
-    if request.method == 'GET':
-        return eventdestination.get_event_subscription(subscription_id)
-    elif request.method == 'DELETE':
-        return eventdestination.delete_event_subscription(subscription_id)
-
-# Allow submitting a test event
-@app.route('/redfish/v1/EventService/Actions/EventService.SubmitTestEvent', methods=['POST'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("EventService")
-def submit_test_event():
-    """Allow submitting a test event to the event service.
-    
-    Returns:
-        Result of test event submission.
-    """
-    return eventservice.submit_test_event()
 
 # Return information about available managers
 @app.route('/redfish/v1/Managers', methods=['GET'], strict_slashes=False) 
@@ -425,79 +205,6 @@ def network_protocol(manager_id):
         return manager.get_manager_network_protocol()
     elif request.method == 'PATCH':
         return manager.update_network_protocol()
-
-# Allow retrieving and updating session service information
-@app.route('/redfish/v1/SessionService', methods=['GET', 'PATCH'], strict_slashes=False)
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("SessionService")
-def session_service():
-    """Allow retrieving and updating session service information.
-    
-    Returns:
-        GET: Session service information.
-        PATCH: Updates session service information.
-    """
-    if request.method == 'GET':
-        return sessionservice.get_session_service()
-    elif request.method == 'PATCH':
-        return sessionservice.update_session_service(request.json)
-
-# Allow retrieving and creating sessions
-@app.route('/redfish/v1/SessionService/Sessions', methods=['GET', 'POST', 'OPTIONS'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-def session_collection():
-    """Allow retrieving and creating sessions.
-    
-    Returns:
-        GET: All sessions.
-        POST: Creates a new session.
-        OPTIONS: Responds to CORS preflight requests.
-    """
-    session_service_state = sessionservice.load_session_service() # Load session service state
-    # Verify if session service is enabled
-
-    # Handle CORS preflight request (OPTIONS)
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response, 200
-
-    if not session_service_state["ServiceEnabled"]:
-        return make_response({"error": "SessionService is disabled."}, 403)
-
-    if request.method == 'GET':
-        return session.get_sessions()
-    elif request.method == 'POST':
-        return session.create_session()
-
-# Allow retrieving and deleting a specific session
-@app.route('/redfish/v1/SessionService/Sessions/<session_id>', methods=['GET', 'DELETE'], strict_slashes=False) 
-@conditional_limit(RATE_LIMIT)                      # Rate limit: 1 request per second
-@requires_authentication
-@requires_privilege("Session")
-def session_detail(session_id):
-    """Allow retrieving and deleting a specific session.
-    
-    Args:
-        session_id (str): Session ID.
-    
-    Returns:
-        GET: Session details.
-        DELETE: Deletes the session.
-    """
-    session_service_state = sessionservice.load_session_service()
-
-    if not session_service_state["ServiceEnabled"]:
-        return make_response({"error": "SessionService is disabled."}, 403)
-
-    if request.method == 'GET':
-        return session.get_session(session_id)
-    elif request.method == 'DELETE':
-        return session.delete_session(session_id)
 
 # Allow retrieving and updating update service information
 @app.route('/redfish/v1/UpdateService', methods=['GET', 'PATCH'], strict_slashes=False) 

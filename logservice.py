@@ -1,7 +1,7 @@
 import json
 import os
 from flask import jsonify, request, make_response
-from datetime import datetime
+from datetime import datetime, timezone
 
 #LOG_FILE = "log_entries.json"
 HOME = os.path.expanduser("~")
@@ -299,12 +299,12 @@ def add_audit_log_entry(system_id, logservice_id, message, user_name=None, sever
         message_id (str, optional): Message identifier. Defaults to "Audit.Action.Success".
     """
     logs = _load_log_list(AUDIT_LOG_FILE)
-    new_event_id = str(int(datetime.utcnow().timestamp() * 1000))
+    new_event_id = str(int(datetime.now(timezone.utc).timestamp() * 1000))
     new_entry = {
         "EventId": new_event_id,
         "Id": new_event_id,
         "Name": f"Audit Log Entry {new_event_id}",
-        "Created": datetime.utcnow().isoformat() + "Z",
+        "Created": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "EntryType": "Event",
         "Severity": severity,
         "Message": message,

@@ -343,3 +343,29 @@ def requires_privilege(entity):
 
         return wrapper
     return decorator
+
+def get_authenticated_username():
+    """Retrieve the authenticated username from session token or Basic auth header.
+    
+    Attempts to get username from session token first, then falls back to Basic Authorization.
+    
+    Returns:
+        str: Username if authenticated, 'anonymous' otherwise.
+    """
+    # Try to get from session token
+    token = request.headers.get("X-Auth-Token")
+    sessions = load_sessions()
+    for sess in sessions.values():
+        if sess.get("Token") == token:
+            return sess.get("UserName")
+    # Try to get from Basic Authorization
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Basic "):
+        import base64
+        try:
+            decoded = base64.b64decode(auth_header.split()[1]).decode()
+            username, _ = decoded.split(":", 1)
+            return username
+        except Exception:
+            pass
+    return "anonymous"
